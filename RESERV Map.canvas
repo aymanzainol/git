@@ -1,0 +1,511 @@
+{
+  "nodes": [
+    {
+      "id": "reserv",
+      "type": "text",
+      "x": -130,
+      "y": -65,
+      "width": 260,
+      "height": 130,
+      "color": "#e8b93b",
+      "text": "# RESERV\n\n*live today*"
+    },
+    {
+      "id": "hub-sell",
+      "type": "text",
+      "x": 460,
+      "y": -466,
+      "width": 210,
+      "height": 72,
+      "color": "#e8b93b",
+      "text": "## [[Sell]]"
+    },
+    {
+      "id": "leaf-catalogue-&-storefronts",
+      "type": "text",
+      "x": 820,
+      "y": -682,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Catalogue & storefronts]]**"
+    },
+    {
+      "id": "leaf-seating-&-floor-plans",
+      "type": "text",
+      "x": 820,
+      "y": -572,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Seating & floor plans]]**"
+    },
+    {
+      "id": "leaf-checkout-&-holds",
+      "type": "text",
+      "x": 820,
+      "y": -462,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Checkout & holds]]**"
+    },
+    {
+      "id": "leaf-card-payments",
+      "type": "text",
+      "x": 820,
+      "y": -366,
+      "width": 340,
+      "height": 92,
+      "color": "1",
+      "text": "**[[Card payments]]**\n\n*The gate to revenue*"
+    },
+    {
+      "id": "leaf-refunds",
+      "type": "text",
+      "x": 820,
+      "y": -242,
+      "width": 340,
+      "height": 64,
+      "color": "1",
+      "text": "**[[Refunds]]**"
+    },
+    {
+      "id": "hub-admit",
+      "type": "text",
+      "x": 460,
+      "y": -36,
+      "width": 210,
+      "height": 72,
+      "color": "#e8b93b",
+      "text": "## [[Admit]]"
+    },
+    {
+      "id": "leaf-rotating-signed-qr",
+      "type": "text",
+      "x": 820,
+      "y": -142,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Rotating signed QR]]**"
+    },
+    {
+      "id": "leaf-offline-capable-gate",
+      "type": "text",
+      "x": 820,
+      "y": -32,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Offline-capable gate]]**"
+    },
+    {
+      "id": "leaf-one-use-enforcement",
+      "type": "text",
+      "x": 820,
+      "y": 78,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[One-use enforcement]]**"
+    },
+    {
+      "id": "hub-hold-up",
+      "type": "text",
+      "x": 460,
+      "y": 394,
+      "width": 210,
+      "height": 72,
+      "color": "#e8b93b",
+      "text": "## [[Hold up]]"
+    },
+    {
+      "id": "leaf-215-automated-checks",
+      "type": "text",
+      "x": 820,
+      "y": 178,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[215 automated checks]]**"
+    },
+    {
+      "id": "leaf-bilingual,-true-rtl",
+      "type": "text",
+      "x": 820,
+      "y": 288,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Bilingual, true RTL]]**"
+    },
+    {
+      "id": "leaf-design-system",
+      "type": "text",
+      "x": 820,
+      "y": 384,
+      "width": 340,
+      "height": 92,
+      "color": "3",
+      "text": "**[[Design system]]**\n\n*Tokens in Figma, components next*"
+    },
+    {
+      "id": "leaf-postgres-&-backups",
+      "type": "text",
+      "x": 820,
+      "y": 508,
+      "width": 340,
+      "height": 64,
+      "color": "1",
+      "text": "**[[Postgres & backups]]**"
+    },
+    {
+      "id": "leaf-security-review",
+      "type": "text",
+      "x": 820,
+      "y": 618,
+      "width": 340,
+      "height": 64,
+      "color": "1",
+      "text": "**[[Security review]]**"
+    },
+    {
+      "id": "hub-deliver",
+      "type": "text",
+      "x": -670,
+      "y": -336,
+      "width": 210,
+      "height": 72,
+      "color": "#e8b93b",
+      "text": "## [[Deliver]]"
+    },
+    {
+      "id": "leaf-email",
+      "type": "text",
+      "x": -1160,
+      "y": -511,
+      "width": 340,
+      "height": 92,
+      "color": "4",
+      "text": "**[[Email]]**\n\n*Live on Resend*"
+    },
+    {
+      "id": "leaf-printable-pass",
+      "type": "text",
+      "x": -1160,
+      "y": -387,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Printable pass]]**"
+    },
+    {
+      "id": "leaf-sms",
+      "type": "text",
+      "x": -1160,
+      "y": -291,
+      "width": 340,
+      "height": 92,
+      "color": "3",
+      "text": "**[[SMS]]**\n\n*Waiting on a CITC sender ID*"
+    },
+    {
+      "id": "leaf-wallet-passes",
+      "type": "text",
+      "x": -1160,
+      "y": -181,
+      "width": 340,
+      "height": 92,
+      "color": "3",
+      "text": "**[[Wallet passes]]**\n\n*Google needs a key, Apple a membership*"
+    },
+    {
+      "id": "hub-run",
+      "type": "text",
+      "x": -670,
+      "y": 264,
+      "width": 210,
+      "height": 72,
+      "color": "#e8b93b",
+      "text": "## [[Run]]"
+    },
+    {
+      "id": "leaf-partner-console",
+      "type": "text",
+      "x": -1160,
+      "y": 48,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Partner console]]**"
+    },
+    {
+      "id": "leaf-agreements-&-invoices",
+      "type": "text",
+      "x": -1160,
+      "y": 158,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Agreements & invoices]]**"
+    },
+    {
+      "id": "leaf-roles-&-audited-access",
+      "type": "text",
+      "x": -1160,
+      "y": 268,
+      "width": 340,
+      "height": 64,
+      "color": "4",
+      "text": "**[[Roles & audited access]]**"
+    },
+    {
+      "id": "leaf-partner-payouts",
+      "type": "text",
+      "x": -1160,
+      "y": 378,
+      "width": 340,
+      "height": 64,
+      "color": "1",
+      "text": "**[[Partner payouts]]**"
+    },
+    {
+      "id": "leaf-zatca-e-invoicing",
+      "type": "text",
+      "x": -1160,
+      "y": 488,
+      "width": 340,
+      "height": 64,
+      "color": "1",
+      "text": "**[[ZATCA e-invoicing]]**"
+    },
+    {
+      "id": "legend",
+      "type": "text",
+      "x": -1160,
+      "y": 600,
+      "width": 340,
+      "height": 200,
+      "text": "**Legend**\n\n🟢 Shipped — done and in use\n🟡 In progress — moving, not finished\n🔴 Not started — nothing built yet\n\nEvery node links to a note. See [[RESERV]] for the board and [[Status legend]] for what the colours commit to."
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-reserv-sell",
+      "fromNode": "reserv",
+      "fromSide": "right",
+      "toNode": "hub-sell",
+      "toSide": "left",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "e-sell-0",
+      "fromNode": "hub-sell",
+      "fromSide": "right",
+      "toNode": "leaf-catalogue-&-storefronts",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-sell-1",
+      "fromNode": "hub-sell",
+      "fromSide": "right",
+      "toNode": "leaf-seating-&-floor-plans",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-sell-2",
+      "fromNode": "hub-sell",
+      "fromSide": "right",
+      "toNode": "leaf-checkout-&-holds",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-sell-3",
+      "fromNode": "hub-sell",
+      "fromSide": "right",
+      "toNode": "leaf-card-payments",
+      "toSide": "left",
+      "color": "1"
+    },
+    {
+      "id": "e-sell-4",
+      "fromNode": "hub-sell",
+      "fromSide": "right",
+      "toNode": "leaf-refunds",
+      "toSide": "left",
+      "color": "1"
+    },
+    {
+      "id": "e-reserv-admit",
+      "fromNode": "reserv",
+      "fromSide": "right",
+      "toNode": "hub-admit",
+      "toSide": "left",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "e-admit-0",
+      "fromNode": "hub-admit",
+      "fromSide": "right",
+      "toNode": "leaf-rotating-signed-qr",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-admit-1",
+      "fromNode": "hub-admit",
+      "fromSide": "right",
+      "toNode": "leaf-offline-capable-gate",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-admit-2",
+      "fromNode": "hub-admit",
+      "fromSide": "right",
+      "toNode": "leaf-one-use-enforcement",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-reserv-hold-up",
+      "fromNode": "reserv",
+      "fromSide": "right",
+      "toNode": "hub-hold-up",
+      "toSide": "left",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "e-hold-up-0",
+      "fromNode": "hub-hold-up",
+      "fromSide": "right",
+      "toNode": "leaf-215-automated-checks",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-hold-up-1",
+      "fromNode": "hub-hold-up",
+      "fromSide": "right",
+      "toNode": "leaf-bilingual,-true-rtl",
+      "toSide": "left",
+      "color": "4"
+    },
+    {
+      "id": "e-hold-up-2",
+      "fromNode": "hub-hold-up",
+      "fromSide": "right",
+      "toNode": "leaf-design-system",
+      "toSide": "left",
+      "color": "3"
+    },
+    {
+      "id": "e-hold-up-3",
+      "fromNode": "hub-hold-up",
+      "fromSide": "right",
+      "toNode": "leaf-postgres-&-backups",
+      "toSide": "left",
+      "color": "1"
+    },
+    {
+      "id": "e-hold-up-4",
+      "fromNode": "hub-hold-up",
+      "fromSide": "right",
+      "toNode": "leaf-security-review",
+      "toSide": "left",
+      "color": "1"
+    },
+    {
+      "id": "e-reserv-deliver",
+      "fromNode": "reserv",
+      "fromSide": "left",
+      "toNode": "hub-deliver",
+      "toSide": "right",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "e-deliver-0",
+      "fromNode": "hub-deliver",
+      "fromSide": "left",
+      "toNode": "leaf-email",
+      "toSide": "right",
+      "color": "4"
+    },
+    {
+      "id": "e-deliver-1",
+      "fromNode": "hub-deliver",
+      "fromSide": "left",
+      "toNode": "leaf-printable-pass",
+      "toSide": "right",
+      "color": "4"
+    },
+    {
+      "id": "e-deliver-2",
+      "fromNode": "hub-deliver",
+      "fromSide": "left",
+      "toNode": "leaf-sms",
+      "toSide": "right",
+      "color": "3"
+    },
+    {
+      "id": "e-deliver-3",
+      "fromNode": "hub-deliver",
+      "fromSide": "left",
+      "toNode": "leaf-wallet-passes",
+      "toSide": "right",
+      "color": "3"
+    },
+    {
+      "id": "e-reserv-run",
+      "fromNode": "reserv",
+      "fromSide": "left",
+      "toNode": "hub-run",
+      "toSide": "right",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "e-run-0",
+      "fromNode": "hub-run",
+      "fromSide": "left",
+      "toNode": "leaf-partner-console",
+      "toSide": "right",
+      "color": "4"
+    },
+    {
+      "id": "e-run-1",
+      "fromNode": "hub-run",
+      "fromSide": "left",
+      "toNode": "leaf-agreements-&-invoices",
+      "toSide": "right",
+      "color": "4"
+    },
+    {
+      "id": "e-run-2",
+      "fromNode": "hub-run",
+      "fromSide": "left",
+      "toNode": "leaf-roles-&-audited-access",
+      "toSide": "right",
+      "color": "4"
+    },
+    {
+      "id": "e-run-3",
+      "fromNode": "hub-run",
+      "fromSide": "left",
+      "toNode": "leaf-partner-payouts",
+      "toSide": "right",
+      "color": "1"
+    },
+    {
+      "id": "e-run-4",
+      "fromNode": "hub-run",
+      "fromSide": "left",
+      "toNode": "leaf-zatca-e-invoicing",
+      "toSide": "right",
+      "color": "1"
+    }
+  ]
+}

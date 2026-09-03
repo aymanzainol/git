@@ -1,0 +1,9 @@
+# Obsidian per-machine state — everything else in .obsidian is shared vault config
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/
+.obsidian/themes/
+
+.trash/
+.DS_Store
