@@ -36,7 +36,7 @@ flowchart LR
   A1 --> A1_0["Catalogue & storefronts"]:::done
   A1 --> A1_1["Seating & floor plans"]:::done
   A1 --> A1_2["Checkout & holds"]:::done
-  A1 --> A1_3["Card payments<br/><small>The gate to revenue</small>"]:::todo
+  A1 --> A1_3["Card payments<br/>The gate to revenue"]:::todo
   A1 --> A1_4["Refunds"]:::todo
   R --> A2["Admit"]:::core
   A2 --> A2_0["Rotating signed QR"]:::done
@@ -45,14 +45,14 @@ flowchart LR
   R --> A3["Hold up"]:::core
   A3 --> A3_0["215 automated checks"]:::done
   A3 --> A3_1["Bilingual, true RTL"]:::done
-  A3 --> A3_2["Design system<br/><small>Tokens in Figma, components next</small>"]:::doing
+  A3 --> A3_2["Design system<br/>Tokens in Figma, components next"]:::doing
   A3 --> A3_3["Postgres & backups"]:::todo
   A3 --> A3_4["Security review"]:::todo
   R --> A4["Deliver"]:::core
-  A4 --> A4_0["Email<br/><small>Live on Resend</small>"]:::done
+  A4 --> A4_0["Email<br/>Live on Resend"]:::done
   A4 --> A4_1["Printable pass"]:::done
-  A4 --> A4_2["SMS<br/><small>Waiting on a CITC sender ID</small>"]:::doing
-  A4 --> A4_3["Wallet passes<br/><small>Google needs a key, Apple a membership</small>"]:::doing
+  A4 --> A4_2["SMS<br/>Waiting on a CITC sender ID"]:::doing
+  A4 --> A4_3["Wallet passes<br/>Google needs a key, Apple a membership"]:::doing
   R --> A5["Run"]:::core
   A5 --> A5_0["Partner console"]:::done
   A5 --> A5_1["Agreements & invoices"]:::done
