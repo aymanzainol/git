@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="RESERV status mind map">
+<defs><radialGradient id="bg" cx="50%" cy="50%" r="75%"><stop offset="0%" stop-color="#16181e"/><stop offset="100%" stop-color="#0b0c0f"/></radialGradient></defs>
+<rect width="1600" height="900" fill="url(#bg)"/>
+<path d="M886.0,450.0 C944.2,450.0 944.2,213.0 1002.5,213.0" fill="none" stroke="#e3b34a" stroke-width="1.6" opacity="0.55"/>
+<path d="M1177.5,213.0 C1213.2,213.0 1213.2,107.0 1249.0,107.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,213.0 C1213.2,213.0 1213.2,160.0 1249.0,160.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,213.0 C1213.2,213.0 1213.2,213.0 1249.0,213.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,213.0 C1213.2,213.0 1213.2,266.0 1249.0,266.0" fill="none" stroke="#ef8f8f" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,213.0 C1213.2,213.0 1213.2,319.0 1249.0,319.0" fill="none" stroke="#ef8f8f" stroke-width="1.5" opacity="0.5"/>
+<path d="M886.0,450.0 C944.2,450.0 944.2,450.0 1002.5,450.0" fill="none" stroke="#e3b34a" stroke-width="1.6" opacity="0.55"/>
+<path d="M1177.5,450.0 C1213.2,450.0 1213.2,397.0 1249.0,397.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,450.0 C1213.2,450.0 1213.2,450.0 1249.0,450.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,450.0 C1213.2,450.0 1213.2,503.0 1249.0,503.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M886.0,450.0 C944.2,450.0 944.2,707.0 1002.5,707.0" fill="none" stroke="#e3b34a" stroke-width="1.6" opacity="0.55"/>
+<path d="M1177.5,707.0 C1213.2,707.0 1213.2,601.0 1249.0,601.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,707.0 C1213.2,707.0 1213.2,654.0 1249.0,654.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,707.0 C1213.2,707.0 1213.2,707.0 1249.0,707.0" fill="none" stroke="#e9c46a" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,707.0 C1213.2,707.0 1213.2,760.0 1249.0,760.0" fill="none" stroke="#ef8f8f" stroke-width="1.5" opacity="0.5"/>
+<path d="M1177.5,707.0 C1213.2,707.0 1213.2,813.0 1249.0,813.0" fill="none" stroke="#ef8f8f" stroke-width="1.5" opacity="0.5"/>
+<path d="M714.0,450.0 C670.8,450.0 670.8,311.0 627.5,311.0" fill="none" stroke="#e3b34a" stroke-width="1.6" opacity="0.55"/>
+<path d="M452.5,311.0 C401.8,311.0 401.8,231.5 351.0,231.5" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,311.0 C401.8,311.0 401.8,284.5 351.0,284.5" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,311.0 C401.8,311.0 401.8,337.5 351.0,337.5" fill="none" stroke="#e9c46a" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,311.0 C401.8,311.0 401.8,390.5 351.0,390.5" fill="none" stroke="#e9c46a" stroke-width="1.5" opacity="0.5"/>
+<path d="M714.0,450.0 C670.8,450.0 670.8,584.0 627.5,584.0" fill="none" stroke="#e3b34a" stroke-width="1.6" opacity="0.55"/>
+<path d="M452.5,584.0 C401.8,584.0 401.8,478.0 351.0,478.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,584.0 C401.8,584.0 401.8,531.0 351.0,531.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,584.0 C401.8,584.0 401.8,584.0 351.0,584.0" fill="none" stroke="#7fdba4" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,584.0 C401.8,584.0 401.8,637.0 351.0,637.0" fill="none" stroke="#ef8f8f" stroke-width="1.5" opacity="0.5"/>
+<path d="M452.5,584.0 C401.8,584.0 401.8,690.0 351.0,690.0" fill="none" stroke="#ef8f8f" stroke-width="1.5" opacity="0.5"/>
+<circle cx="1262" cy="107.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="160.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="213.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="266.0" r="6" fill="none" stroke="#ef8f8f" stroke-width="2"/>
+<circle cx="1262" cy="319.0" r="6" fill="none" stroke="#ef8f8f" stroke-width="2"/>
+<circle cx="1262" cy="397.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="450.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="503.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="601.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="654.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="1262" cy="707.0" r="6" fill="none" stroke="#e9c46a" stroke-width="2"/>
+<circle cx="1262" cy="760.0" r="6" fill="none" stroke="#ef8f8f" stroke-width="2"/>
+<circle cx="1262" cy="813.0" r="6" fill="none" stroke="#ef8f8f" stroke-width="2"/>
+<rect x="1281.0" y="801.0" width="173.0" height="26" rx="4" fill="#ef8f8f" opacity="0.20"/>
+<circle cx="338" cy="231.5" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<rect x="252.0" y="211.5" width="67.0" height="26" rx="4" fill="#7fdba4" opacity="0.20"/>
+<circle cx="338" cy="284.5" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="338" cy="337.5" r="6" fill="none" stroke="#e9c46a" stroke-width="2"/>
+<circle cx="338" cy="390.5" r="6" fill="none" stroke="#e9c46a" stroke-width="2"/>
+<circle cx="338" cy="478.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="338" cy="531.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="338" cy="584.0" r="6" fill="none" stroke="#7fdba4" stroke-width="2"/>
+<circle cx="338" cy="637.0" r="6" fill="none" stroke="#ef8f8f" stroke-width="2"/>
+<circle cx="338" cy="690.0" r="6" fill="none" stroke="#ef8f8f" stroke-width="2"/>
+<text x="1288" y="114.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Catalogue &amp; storefronts</text>
+<text x="1288" y="167.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Seating &amp; floor plans</text>
+<text x="1288" y="220.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Checkout &amp; holds</text>
+<text x="1288" y="265.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#ef8f8f">Card payments</text>
+<text x="1288" y="286.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#767c86">The gate to revenue</text>
+<text x="1288" y="326.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#ef8f8f">Refunds</text>
+<rect x="1002.5" y="187.0" width="175" height="52" rx="13" fill="#16181d" stroke="#e3b34a" stroke-width="1.6"/>
+<text x="1090" y="220" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#e9eaed">Sell</text>
+<text x="1288" y="404.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Rotating signed QR</text>
+<text x="1288" y="457.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Offline-capable gate</text>
+<text x="1288" y="510.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">One-use enforcement</text>
+<rect x="1002.5" y="424.0" width="175" height="52" rx="13" fill="#16181d" stroke="#e3b34a" stroke-width="1.6"/>
+<text x="1090" y="457" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#e9eaed">Admit</text>
+<text x="1288" y="608.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">215 automated checks</text>
+<text x="1288" y="661.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Bilingual, true RTL</text>
+<text x="1288" y="706.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#e9c46a">Design system</text>
+<text x="1288" y="727.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#767c86">Tokens in Figma, components next</text>
+<text x="1288" y="767.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#ef8f8f">Postgres &amp; backups</text>
+<text x="1288" y="820.0" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#ef8f8f">Security review</text>
+<rect x="1002.5" y="681.0" width="175" height="52" rx="13" fill="#16181d" stroke="#e3b34a" stroke-width="1.6"/>
+<text x="1090" y="714" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#e9eaed">Hold up</text>
+<text x="312" y="230.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Email</text>
+<text x="312" y="251.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#767c86">Live on Resend</text>
+<text x="312" y="291.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Printable pass</text>
+<text x="312" y="336.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#e9c46a">SMS</text>
+<text x="312" y="357.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#767c86">Waiting on a CITC sender ID</text>
+<text x="312" y="389.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#e9c46a">Wallet passes</text>
+<text x="312" y="410.5" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#767c86">Google needs a key, Apple a membership</text>
+<rect x="452.5" y="285.0" width="175" height="52" rx="13" fill="#16181d" stroke="#e3b34a" stroke-width="1.6"/>
+<text x="540" y="318" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#e9eaed">Deliver</text>
+<text x="312" y="485.0" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Partner console</text>
+<text x="312" y="538.0" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Agreements &amp; invoices</text>
+<text x="312" y="591.0" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#7fdba4">Roles &amp; audited access</text>
+<text x="312" y="644.0" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#ef8f8f">Partner payouts</text>
+<text x="312" y="697.0" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="500" fill="#ef8f8f">ZATCA e-invoicing</text>
+<rect x="452.5" y="558.0" width="175" height="52" rx="13" fill="#16181d" stroke="#e3b34a" stroke-width="1.6"/>
+<text x="540" y="591" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="21" font-weight="600" fill="#e9eaed">Run</text>
+<circle cx="800" cy="450" r="86" fill="#131519" stroke="#f0c34e" stroke-width="2.2"/>
+<text x="800" y="448" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="700" letter-spacing="1.2" fill="#ffffff">RESERV</text>
+<text x="800" y="474" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#c2a052">live today</text>
+</svg>

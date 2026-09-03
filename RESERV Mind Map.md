@@ -15,41 +15,10 @@ tags:
 
 ## The map
 
-```mermaid
-flowchart LR
-  R(("RESERV<br/>live today")):::core
-  R --- A1["Sell"]:::core
-  A1 --- A1_0["Catalogue & storefronts"]:::done
-  A1 --- A1_1["Seating & floor plans"]:::done
-  A1 --- A1_2["Checkout & holds"]:::done
-  A1 --- A1_3["Card payments<br/>The gate to revenue"]:::todo
-  A1 --- A1_4["Refunds"]:::todo
-  R --- A2["Admit"]:::core
-  A2 --- A2_0["Rotating signed QR"]:::done
-  A2 --- A2_1["Offline-capable gate"]:::done
-  A2 --- A2_2["One-use enforcement"]:::done
-  R --- A3["Hold up"]:::core
-  A3 --- A3_0["215 automated checks"]:::done
-  A3 --- A3_1["Bilingual, true RTL"]:::done
-  A3 --- A3_2["Design system<br/>Tokens in Figma, components next"]:::doing
-  A3 --- A3_3["Postgres & backups"]:::todo
-  A3 --- A3_4["Security review"]:::todo
-  R --- A4["Deliver"]:::core
-  A4 --- A4_0["Email<br/>Live on Resend"]:::done
-  A4 --- A4_1["Printable pass"]:::done
-  A4 --- A4_2["SMS<br/>Waiting on a CITC sender ID"]:::doing
-  A4 --- A4_3["Wallet passes<br/>Google needs a key, Apple a membership"]:::doing
-  R --- A5["Run"]:::core
-  A5 --- A5_0["Partner console"]:::done
-  A5 --- A5_1["Agreements & invoices"]:::done
-  A5 --- A5_2["Roles & audited access"]:::done
-  A5 --- A5_3["Partner payouts"]:::todo
-  A5 --- A5_4["ZATCA e-invoicing"]:::todo
-  classDef core stroke:#e8b93b,stroke-width:2px;
-  classDef done stroke:#22c55e,stroke-width:2px;
-  classDef doing stroke:#eab308,stroke-width:2px;
-  classDef todo stroke:#ef4444,stroke-width:2px;
-```
+![[RESERV Map.svg]]
+
+> [!note] Two versions of the same map
+> The image above is the map as drawn. **[[RESERV Map.canvas|RESERV Map]]** is the editable one — same structure, but you can drag nodes, recolour them, and every leaf links to its note.
 
 ## The map, as an outline
 

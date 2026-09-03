@@ -6,7 +6,7 @@ The RESERV status mind map, as an Obsidian vault: one canvas you can pan and edi
 
 1. Clone this repo.
 2. Obsidian → **Open folder as vault** → pick the cloned folder.
-3. Open **`RESERV Map.canvas`** for the map, or **`RESERV.md`** for the board view.
+3. Open **`RESERV.md`** to see the map and the board. Open **`RESERV Map.canvas`** to move things around.
 
 Nothing here needs a community plugin. Canvas, graph, and search are all core Obsidian. Dataview queries are suggested in [Status legend](Meta/Status%20legend.md) but everything works without it.
 
@@ -14,8 +14,9 @@ Nothing here needs a community plugin. Canvas, graph, and search are all core Ob
 
 | | |
 |---|---|
-| `RESERV Map.canvas` | The mind map. Five branches off a centre node, 22 leaves, colour-coded by status. Every leaf is a live link to its note. |
-| `RESERV.md` | The board: roll-up counts, the same map as a Mermaid diagram, and the work bucketed by status. |
+| `Meta/attachments/RESERV Map.svg` | The map exactly as drawn — borderless labels, status dots, curved branches. Embedded at the top of `RESERV.md` and `RESERV Mind Map.md`. |
+| `RESERV Map.canvas` | The mind map, editable. Five branches off a centre node, 22 leaves, colour-coded by status. Every leaf is a live link to its note. |
+| `RESERV.md` | The board: the map, roll-up counts, and the work bucketed by status. |
 | `Areas/` | One note per branch — Sell, Admit, Hold up, Deliver, Run — each with its items and a count. |
 | `Items/` | One note per leaf, with `status`, `area`, and any blocker in frontmatter. |
 | `Meta/Status legend.md` | What the three colours commit to, and the frontmatter schema. |
@@ -35,3 +36,5 @@ Nothing here needs a community plugin. Canvas, graph, and search are all core Ob
 ## Editing
 
 Drag nodes, recolour them, and add branches directly in the canvas — it is plain JSON, so the diffs stay readable. When you change a node's colour, change `status:` in the matching note too; nothing syncs the two for you.
+
+The SVG is the drawn version and does not update itself. Edit it as text (it is hand-written SVG, one line per label) or regenerate it if the map changes shape.
