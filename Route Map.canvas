@@ -1,0 +1,326 @@
+{
+  "nodes": [
+    {
+      "id": "g-public",
+      "type": "group",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 708,
+      "label": "Public (7)",
+      "color": "#5aa9e6"
+    },
+    {
+      "id": "g-ticket-holder",
+      "type": "group",
+      "x": 420,
+      "y": 0,
+      "width": 380,
+      "height": 248,
+      "label": "Ticket holder (2)",
+      "color": "#9b7ede"
+    },
+    {
+      "id": "g-gate",
+      "type": "group",
+      "x": 420,
+      "y": 288,
+      "width": 380,
+      "height": 156,
+      "label": "Gate (1)",
+      "color": "#7f8c9b"
+    },
+    {
+      "id": "g-partner",
+      "type": "group",
+      "x": 840,
+      "y": 0,
+      "width": 380,
+      "height": 616,
+      "label": "Partner (6)",
+      "color": "#45b3a0"
+    },
+    {
+      "id": "g-admin",
+      "type": "group",
+      "x": 1260,
+      "y": 0,
+      "width": 380,
+      "height": 708,
+      "label": "Admin (7)",
+      "color": "#c86fb0"
+    },
+    {
+      "id": "n0",
+      "type": "text",
+      "x": 30,
+      "y": 55,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Home|Home]]**\n\n`/` · **1 open**"
+    },
+    {
+      "id": "n1",
+      "type": "text",
+      "x": 30,
+      "y": 147,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Catalogue|Catalogue]]**\n\n`/events`"
+    },
+    {
+      "id": "n2",
+      "type": "text",
+      "x": 30,
+      "y": 239,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Event page|Event page]]**\n\n`/events/[slug]` · **2 open**"
+    },
+    {
+      "id": "n3",
+      "type": "text",
+      "x": 30,
+      "y": 331,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Checkout|Checkout]]**\n\n`/checkout/[slug]` · **2 open**"
+    },
+    {
+      "id": "n4",
+      "type": "text",
+      "x": 30,
+      "y": 423,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Sign in|Sign in]]**\n\n`/login`"
+    },
+    {
+      "id": "n5",
+      "type": "text",
+      "x": 30,
+      "y": 515,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Contact|Contact]]**\n\n`/contact`"
+    },
+    {
+      "id": "n6",
+      "type": "text",
+      "x": 30,
+      "y": 607,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Terms, privacy, refunds|Terms, privacy, refunds]]**\n\n`/legal/[doc]`"
+    },
+    {
+      "id": "n7",
+      "type": "text",
+      "x": 450,
+      "y": 55,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Order & tickets|Order & tickets]]**\n\n`/orders/[code]` · **1 open**"
+    },
+    {
+      "id": "n8",
+      "type": "text",
+      "x": 450,
+      "y": 147,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - My account & orders|My account & orders]]**\n\n`/account`"
+    },
+    {
+      "id": "n9",
+      "type": "text",
+      "x": 450,
+      "y": 343,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Entry gate scanner|Entry gate scanner]]**\n\n`/scan` · **1 open**"
+    },
+    {
+      "id": "n10",
+      "type": "text",
+      "x": 870,
+      "y": 55,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Partner console|Partner console]]**\n\n`/console`"
+    },
+    {
+      "id": "n11",
+      "type": "text",
+      "x": 870,
+      "y": 147,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Create event|Create event]]**\n\n`/console/events/new` · **2 open**"
+    },
+    {
+      "id": "n12",
+      "type": "text",
+      "x": 870,
+      "y": 239,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Edit event|Edit event]]**\n\n`/console/events/[id]` · **1 open**"
+    },
+    {
+      "id": "n13",
+      "type": "text",
+      "x": 870,
+      "y": 331,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Floor plans|Floor plans]]**\n\n`/console/layouts`"
+    },
+    {
+      "id": "n14",
+      "type": "text",
+      "x": 870,
+      "y": 423,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Floor plan editor|Floor plan editor]]**\n\n`/console/layouts/[id]` · **1 open**"
+    },
+    {
+      "id": "n15",
+      "type": "text",
+      "x": 870,
+      "y": 515,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Invoice|Invoice]]**\n\n`/invoices/[number]` · **1 open**"
+    },
+    {
+      "id": "n16",
+      "type": "text",
+      "x": 1290,
+      "y": 55,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Admin dashboard|Admin dashboard]]**\n\n`/admin`"
+    },
+    {
+      "id": "n17",
+      "type": "text",
+      "x": 1290,
+      "y": 147,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Accounts directory|Accounts directory]]**\n\n`/admin/accounts` · **1 open**"
+    },
+    {
+      "id": "n18",
+      "type": "text",
+      "x": 1290,
+      "y": 239,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Partners|Partners]]**\n\n`/admin/partners`"
+    },
+    {
+      "id": "n19",
+      "type": "text",
+      "x": 1290,
+      "y": 331,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Partner detail|Partner detail]]**\n\n`/admin/partners/[slug]` · **1 open**"
+    },
+    {
+      "id": "n20",
+      "type": "text",
+      "x": 1290,
+      "y": 423,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Agreements|Agreements]]**\n\n`/admin/agreements` · **1 open**"
+    },
+    {
+      "id": "n21",
+      "type": "text",
+      "x": 1290,
+      "y": 515,
+      "width": 320,
+      "height": 76,
+      "color": "2",
+      "text": "**[[Route - Platform settings|Platform settings]]**\n\n`/admin/settings` · **1 open**"
+    },
+    {
+      "id": "n22",
+      "type": "text",
+      "x": 1290,
+      "y": 607,
+      "width": 320,
+      "height": 76,
+      "text": "**[[Route - Contact messages|Contact messages]]**\n\n`/admin/messages`"
+    },
+    {
+      "id": "legend",
+      "type": "text",
+      "x": 0,
+      "y": 800,
+      "width": 380,
+      "height": 150,
+      "text": "**Route map**\n\n23 routes, grouped by who can open them. Orange = the route carries open work; the count links through to [[Backlog]].\n\nStatus of the build itself is [[RESERV Map.canvas|RESERV Map]]."
+    }
+  ],
+  "edges": [
+    {
+      "id": "f0",
+      "fromNode": "n0",
+      "fromSide": "bottom",
+      "toNode": "n1",
+      "toSide": "top",
+      "color": "#e8b93b",
+      "label": "the buying path"
+    },
+    {
+      "id": "f1",
+      "fromNode": "n1",
+      "fromSide": "bottom",
+      "toNode": "n2",
+      "toSide": "top",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "f2",
+      "fromNode": "n2",
+      "fromSide": "bottom",
+      "toNode": "n3",
+      "toSide": "top",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "f3",
+      "fromNode": "n3",
+      "fromSide": "right",
+      "toNode": "n7",
+      "toSide": "left",
+      "color": "#e8b93b"
+    },
+    {
+      "id": "f4",
+      "fromNode": "n7",
+      "fromSide": "right",
+      "toNode": "n9",
+      "toSide": "left",
+      "color": "#e8b93b"
+    }
+  ]
+}

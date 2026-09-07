@@ -19,6 +19,9 @@ Nothing here needs a community plugin. Canvas, graph, and search are all core Ob
 | `RESERV.md` | The board: the map, roll-up counts, and the work bucketed by status. |
 | `Areas/` | One note per branch — Sell, Admit, Hold up, Deliver, Run — each with its items and a count. |
 | `Items/` | One note per leaf, with `status`, `area`, and any blocker in frontmatter. |
+| `Routes.md`, `Routes/` | Every page in the product: access, forms, fields, APIs, source file. One note per route. |
+| `Route Map.canvas` | The 23 routes grouped by audience, with the buying path drawn through them. |
+| `Backlog.md`, `Backlog/` | Open asks off the route table, grouped into 8 themes and linked to every route each one touches. |
 | `Meta/Status legend.md` | What the three colours commit to, and the frontmatter schema. |
 
 ## Status at a glance

@@ -71,6 +71,14 @@ tags:
 | [[Agreements & invoices]] | [[Run]] |  |
 | [[Roles & audited access]] | [[Run]] |  |
 
+## The product itself
+
+| | |
+|---|---|
+| [[Routes]] | All 23 pages — who can open each one, what it does, which APIs it calls, and where the source lives. |
+| [[Route Map.canvas\|Route Map]] | The same 23 routes on a canvas, grouped by audience, with the buying path drawn through them. |
+| [[Backlog]] | The open asks off the route table, grouped into 8 themes. |
+
 ## Areas
 
 [[Sell]] · [[Admit]] · [[Hold up]] · [[Deliver]] · [[Run]]
