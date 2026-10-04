@@ -209,6 +209,17 @@ function Test-AppInstalled($Detect) {
     return $false
 }
 
+function Wait-AppInstalled($App) {
+    $deadline = (Get-Date).AddMinutes([double]$App.WaitMinutes)
+    while (-not (Test-AppInstalled $App.Detect)) {
+        if ((Get-Date) -ge $deadline) { return $false }
+        Write-Progress -Id 3 -Activity $App.Name -Status 'Waiting for the installer to finish...'
+        Start-Sleep -Seconds 10
+    }
+    Write-Progress -Id 3 -Activity $App.Name -Completed
+    return $true
+}
+
 #endregion
 
 #region Stages ------------------------------------------------------------
@@ -548,7 +559,7 @@ function Invoke-AppsStage($State, $Config) {
                 $result = Install-WingetApp $app
             } else {
                 $result = Install-FileApp $app
-                if ($app.Detect -and -not (Test-AppInstalled $app.Detect)) { throw 'installer finished but the program was not found afterwards' }
+                if ($app.Detect -and -not (Wait-AppInstalled $app)) { throw 'installer finished but the program was not found afterwards' }
             }
             Write-Log "$($app.Name): $result" $(if ($skip -and $result -like 'Skipped*') { 'Warn' } else { 'Ok' })
         } catch {

@@ -17,8 +17,9 @@ Copy this `PC-Setup` folder to a USB stick (or a network share), then:
    - `DomainName`, plus `OUPath` if new PCs go into a specific OU.
    - The Keyloop Drive installer's file name and silent switches.
    - Your CrowdStrike **CID**, in `CID=...`.
-2. **`installers\CrowdStrike\`**: put `WindowsSensor.exe` here. Download it from Falcon console → Host setup and management → Sensor downloads.
-3. **`installers\Keyloop\`**: put the Keyloop Drive installer here.
+2. **Office**: double-click **`Prepare-Office.cmd`** once, on any PC with internet. It puts the Office installer and files (about 4 GB) in `installers\Office`, so new PCs install Office from the USB stick instead of downloading it. Edition and language are set in `installers\Office\configuration.xml`. If you'd rather use your own installer, such as `OfficeSetup.exe`, put it in `installers\Office` and change the Microsoft 365 entry in `config.psd1`.
+3. **`installers\CrowdStrike\`**: put `WindowsSensor.exe` here. Download it from Falcon console → Host setup and management → Sensor downloads.
+4. **`installers\Keyloop\`**: put the Keyloop Drive installer here.
 
 The installer files are ignored by git, so they stay on the USB stick and never get committed.
 

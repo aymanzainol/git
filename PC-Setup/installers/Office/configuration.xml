@@ -1,6 +1,8 @@
 <!--
   Microsoft 365 Apps install settings (Office Deployment Tool).
   Build your own at https://config.office.com and replace this file if you need something different.
+  Prepare-Office.cmd downloads the Office files next to this (installers\Office\Office\Data);
+  setup.exe then installs from them instead of the internet.
 -->
 <Configuration>
   <Add OfficeClientEdition="64" Channel="Current">

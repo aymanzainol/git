@@ -26,20 +26,23 @@
     #              .msi files get "/i <file> /qn /norestart" automatically
     #              {KIT} in Arguments = the folder this kit runs from
     #  Detect    : how to tell it's already installed, so re-runs skip it
+    #  WaitMinutes : keep checking Detect this long after the installer exits
     #              Service = '<service name>' | Path = '<file or folder>' | DisplayName = '<Programs and Features name, wildcards ok>'
     Apps = @(
         @{ Name = 'Google Chrome';      WingetId = 'Google.Chrome';     Scope = 'machine' }
         @{ Name = 'Foxit PDF Reader';   WingetId = 'Foxit.FoxitReader'; Scope = 'machine' }
         @{ Name = 'WinRAR';             WingetId = 'RARLab.WinRAR';     Scope = 'machine' }
 
-        # Office Deployment Tool straight from Microsoft (signature checked).
-        # Edition, language and channel are set in office\configuration.xml.
+        # Office from the installer in installers\Office. Run Prepare-Office.cmd once to put
+        # setup.exe + the Office files there (edition/language in configuration.xml).
+        # Using your own installer instead, e.g. OfficeSetup.exe from portal.office.com?
+        #   Installer = 'installers\Office\OfficeSetup.exe'; Arguments = ''
         @{
             Name        = 'Microsoft 365 Apps'
-            DownloadUrl = 'https://officecdn.microsoft.com/pr/wsus/setup.exe'
-            Signer      = 'Microsoft Corporation'
-            Arguments   = '/configure "{KIT}\office\configuration.xml"'
+            Installer   = 'installers\Office\setup.exe'
+            Arguments   = '/configure "{KIT}\installers\Office\configuration.xml"'
             Detect      = @{ Path = '%ProgramFiles%\Microsoft Office\root\Office16\WINWORD.EXE' }
+            WaitMinutes = 60     # some Office installers return before Office is fully installed
         }
 
         # Copy your Keyloop Drive installer into installers\Keyloop\ and set the

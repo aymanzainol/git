@@ -12,3 +12,4 @@
 PC-Setup/installers/**
 !PC-Setup/installers/*/
 !PC-Setup/installers/*/README.txt
+!PC-Setup/installers/Office/configuration.xml
