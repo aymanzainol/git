@@ -37,7 +37,7 @@ The script copies itself to `C:\ProgramData\PCSetup\kit` before it starts, so yo
 - **It can be re-run safely.** Programs that are already installed are skipped. If something stops it, fix the problem and run `Start-Setup.cmd` again. It asks whether to continue where it left off.
 - **Logs** are in `C:\ProgramData\PCSetup\setup.log` and `transcript.log`.
 - **The domain password** is saved encrypted (Windows DPAPI, so only that user on that PC can read it). The file is deleted as soon as the join finishes. If the join fails, the script asks for the credentials again, up to 3 tries.
-- **Windows Update** skips feature upgrades and "Preview" updates, and gives up after 6 rounds. You can change all of this in `config.psd1`.
+- **Windows Update** shows each update with its size and state, and a progress bar for every download and install. If Windows already has a restart pending, it restarts first. It skips feature upgrades and "Preview" updates (they are still listed, marked `[skipped]`) and gives up after 6 rounds. You can change all of this in `config.psd1`.
 - **A missing installer is skipped, not fatal.** If a program isn't configured or its file is missing, that program is skipped with a warning and everything else still installs. Skipped programs are listed in the final summary.
 - **Options:** `Setup-NewPC.ps1 -SkipWindowsUpdate` and `-SkipDomainJoin`.
 

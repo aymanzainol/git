@@ -49,19 +49,38 @@ jobs:
           path: C:\ProgramData\PCSetup\*.log
 
   windows-update:
-    name: Windows Update search (no install)
+    name: Windows Update stage (Defender definitions only)
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - name: Install PSWindowsUpdate and list available updates
+      - uses: actions/checkout@v4
+
+      - name: Run Invoke-WindowsUpdateStage against real Windows Update
         shell: powershell
         run: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers | Out-Null
-          Install-Module PSWindowsUpdate -Repository PSGallery -Scope AllUsers -Force -AllowClobber
-          Import-Module PSWindowsUpdate
-          try { Add-WUServiceManager -MicrosoftUpdate -Confirm:$false | Out-Null } catch { "Add-WUServiceManager: $_" }
-          $u = @(Get-WindowsUpdate -MicrosoftUpdate -NotCategory 'Upgrades' -NotTitle 'Preview')
-          "Found $($u.Count) update(s):"
-          $u | Format-Table KB, Size, Title -AutoSize | Out-String -Width 200
-          "Reboot pending: $(Get-WURebootStatus -Silent)"
+          $ErrorActionPreference = 'Stop'
+          # Load the script's functions without running its main block.
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
+          foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
+            if ($a.Left.Extent.Text -in '$WuCallbackSource', '$WingetOk', '$InstallerOk') { . ([scriptblock]::Create($a.Extent.Text)) }
+          }
+          foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
+
+          $WorkDir = "$env:RUNNER_TEMP\pcsetup"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
+          $StateFile = "$WorkDir\state.xml"; $LogFile = "$WorkDir\setup.log"
+          $SkipWindowsUpdate = $false; $SkipDomainJoin = $true; $Unattended = $true
+
+          # The runner can't restart; report instead.
+          function Get-PendingReboot { @() }
+          function Restart-AndResume($State, $Reason) { Write-Log "WOULD RESTART: $Reason" 'Warn'; throw 'restart-requested' }
+
+          # Only Defender definition updates: small, quick, real download + install.
+          $config = @{
+            MaxUpdateRounds = 2; IncludeDrivers = $false; ExcludeTitle = 'Preview'
+            ExcludeCategories = @('Security Updates','Critical Updates','Updates','Update Rollups','Upgrades','Feature Packs','Service Packs','Tools','Drivers')
+          }
+          $state = New-State
+          try { Invoke-WindowsUpdateStage $state $config } catch { if ("$_" -ne 'restart-requested') { throw } }
+          $state.Results | Format-Table -AutoSize | Out-String -Width 200
+          if ($state.Results | Where-Object { $_.Result -like 'FAILED*' }) { exit 1 }
+          if ($script:WuAsyncWarned) { Write-Host '::warning::Live progress fell back to synchronous mode' }

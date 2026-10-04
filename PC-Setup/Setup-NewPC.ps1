@@ -36,7 +36,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ProgressPreference    = 'SilentlyContinue'
+$ProgressPreference    = 'Continue'
 
 $WorkDir   = Join-Path $env:ProgramData 'PCSetup'
 $KitDir    = Join-Path $WorkDir 'kit'
@@ -101,6 +101,7 @@ function Set-NextStage($State) {
 }
 
 function Wait-ForInternet {
+    $ProgressPreference = 'SilentlyContinue'
     for ($i = 0; $i -lt 24; $i++) {
         try {
             $r = Invoke-WebRequest -Uri 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 5
@@ -212,18 +213,141 @@ function Test-AppInstalled($Detect) {
 
 #region Stages ------------------------------------------------------------
 
+# Windows Update is driven through the built-in Windows Update Agent COM API: no
+# extra module, each update listed on its own, and a live progress bar.
+$WuCallbackSource = @'
+using System;
+using System.Runtime.InteropServices;
+namespace PCSetup {
+    [ComImport, Guid("8C3F1CDD-6173-4591-AEBD-A56A53CA77C1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDownloadProgressChangedCallback { void Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args); }
+    [ComImport, Guid("77254866-9F5B-4C8E-B9E2-C77A8530D64B"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IDownloadCompletedCallback { void Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args); }
+    [ComImport, Guid("E01402D5-F8DA-43BA-A012-38894BD048F1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IInstallationProgressChangedCallback { void Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args); }
+    [ComImport, Guid("45F4F6F3-D602-4F98-9A8A-3EFA152AD2D3"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    public interface IInstallationCompletedCallback { void Invoke([MarshalAs(UnmanagedType.IDispatch)] object job, [MarshalAs(UnmanagedType.IDispatch)] object args); }
+
+    // No-op callbacks: the script polls the job for progress instead.
+    [ComVisible(true), ClassInterface(ClassInterfaceType.None)]
+    public class WuCallback : IDownloadProgressChangedCallback, IDownloadCompletedCallback,
+                              IInstallationProgressChangedCallback, IInstallationCompletedCallback {
+        void IDownloadProgressChangedCallback.Invoke(object job, object args) { }
+        void IDownloadCompletedCallback.Invoke(object job, object args) { }
+        void IInstallationProgressChangedCallback.Invoke(object job, object args) { }
+        void IInstallationCompletedCallback.Invoke(object job, object args) { }
+    }
+}
+'@
+
+function Get-PendingReboot {
+    $reasons = @()
+    try { if ((New-Object -ComObject Microsoft.Update.SystemInfo).RebootRequired) { $reasons += 'Windows Update' } } catch { }
+    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') { $reasons += 'Windows Update' }
+    if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $reasons += 'Windows servicing' }
+    @($reasons | Select-Object -Unique)
+}
+
+function Format-Size([double]$Bytes) {
+    if ($Bytes -ge 1GB) { '{0:N1} GB' -f ($Bytes / 1GB) } elseif ($Bytes -ge 1MB) { '{0:N0} MB' -f ($Bytes / 1MB) } else { '{0:N0} KB' -f ($Bytes / 1KB) }
+}
+
+function Get-WuCallback {
+    if ($null -eq $script:WuCallback) {
+        try {
+            if (-not ('PCSetup.WuCallback' -as [type])) { Add-Type -TypeDefinition $WuCallbackSource -Language CSharp }
+            $script:WuCallback = New-Object PCSetup.WuCallback
+        } catch {
+            Write-Log "Live progress not available ($($_.Exception.Message)) - updates still install, without a percentage." 'Warn'
+            $script:WuAsyncWarned = $true
+            $script:WuCallback = $false
+        }
+    }
+    $script:WuCallback
+}
+
+function Invoke-WuStep {
+    # Downloads or installs one update with a progress bar. Returns the WUA result object.
+    param($Session, $Update, [ValidateSet('Download', 'Install')][string]$Kind, [int]$Index, [int]$Total)
+
+    $coll = New-Object -ComObject Microsoft.Update.UpdateColl
+    [void]$coll.Add($Update)
+    if ($Kind -eq 'Download') {
+        $op = $Session.CreateUpdateDownloader()
+    } else {
+        $op = $Session.CreateUpdateInstaller()
+        try { $op.ForceQuiet = $true } catch { }
+    }
+    $op.Updates = $coll
+
+    $verb = if ($Kind -eq 'Download') { 'Downloading' } else { 'Installing' }
+    $activity = "Windows Update - $verb $Index of $Total"
+    Write-Progress -Id 1 -Activity 'Windows Update' -Status "$verb $Index of $Total" -PercentComplete ((($Index - 1) / $Total) * 100)
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+
+    $job = $null
+    $cb = Get-WuCallback
+    if ($cb) {
+        try {
+            $job = if ($Kind -eq 'Download') { $op.BeginDownload($cb, $cb, $null) } else { $op.BeginInstall($cb, $cb, $null) }
+        } catch {
+            $job = $null
+            if (-not $script:WuAsyncWarned) { Write-Log "Live progress not available ($($_.Exception.Message)) - updates still install, without a percentage." 'Warn' }
+            $script:WuAsyncWarned = $true
+        }
+    }
+
+    if ($job) {
+        while (-not $job.IsCompleted) {
+            $pct = 0
+            try { $pct = [int]$job.GetProgress().PercentComplete } catch { }
+            Write-Progress -Id 2 -ParentId 1 -Activity $activity -Status ("{0}%   {1:hh\:mm\:ss} elapsed" -f $pct, $watch.Elapsed) -CurrentOperation $Update.Title -PercentComplete $pct
+            Start-Sleep -Milliseconds 500
+        }
+        $result = if ($Kind -eq 'Download') { $op.EndDownload($job) } else { $op.EndInstall($job) }
+    } else {
+        # No live percentage available - run it synchronously.
+        Write-Progress -Id 2 -ParentId 1 -Activity $activity -Status 'working...' -CurrentOperation $Update.Title
+        $result = if ($Kind -eq 'Download') { $op.Download() } else { $op.Install() }
+    }
+    Write-Progress -Id 2 -Activity $activity -Completed
+    $result
+}
+
+function Get-WuResultText($Result) {
+    $codes = @{ 0 = 'not started'; 1 = 'in progress'; 2 = 'OK'; 3 = 'OK with errors'; 4 = 'failed'; 5 = 'aborted' }
+    $text = $codes[[int]$Result.ResultCode]
+    $hr = 0
+    try { $hr = $Result.GetUpdateResult(0).HResult } catch { try { $hr = $Result.HResult } catch { } }
+    if ($hr) { $text += ' (0x{0:X8})' -f $hr }
+    $text
+}
+
 function Invoke-WindowsUpdateStage($State, $Config) {
     if ($State.SkipWindowsUpdate) { Add-Result $State 'Windows Update' 'Skipped'; return }
-
     Write-Log 'Windows Update' 'Step'
-    Import-GalleryModule 'PSWindowsUpdate'
-    try { Add-WUServiceManager -MicrosoftUpdate -Confirm:$false | Out-Null } catch { }   # also offers Office/other Microsoft product updates
 
-    $filter = @{ MicrosoftUpdate = $true }
-    $notCategory = @($Config.ExcludeCategories)
-    if (-not $Config.IncludeDrivers) { $notCategory += 'Drivers' }
-    if ($notCategory) { $filter.NotCategory = $notCategory }
-    if ($Config.ExcludeTitle) { $filter.NotTitle = $Config.ExcludeTitle }
+    # Windows often installs updates on its own during first sign-in. Finish those first.
+    $pending = Get-PendingReboot
+    if ($pending) {
+        $State.PendingRestarts = [int]$State.PendingRestarts + 1
+        if ($State.PendingRestarts -le 2) { Restart-AndResume $State "a restart is already pending ($($pending -join ', '))" }
+        Write-Log "Windows still reports a pending restart ($($pending -join ', ')) after restarting - carrying on anyway." 'Warn'
+    }
+    $State.PendingRestarts = 0
+    Save-State $State
+
+    $session = New-Object -ComObject Microsoft.Update.Session
+    $session.ClientApplicationID = 'PC-Setup'
+    try {
+        # "Receive updates for other Microsoft products" (Office, .NET, etc.)
+        $sm = New-Object -ComObject Microsoft.Update.ServiceManager
+        $mu = '7971f918-a847-4430-9279-4a52d1efe18d'
+        if (-not ($sm.Services | Where-Object { $_.ServiceID -eq $mu })) { [void]$sm.AddService2($mu, 7, '') }
+    } catch {
+        Write-Log "Couldn't turn on Microsoft Update for other products: $($_.Exception.Message)" 'Warn'
+    }
+    $searcher = $session.CreateUpdateSearcher()
 
     while ($true) {
         if ($State.UpdateRound -ge $Config.MaxUpdateRounds) {
@@ -235,19 +359,69 @@ function Invoke-WindowsUpdateStage($State, $Config) {
         Save-State $State
 
         Write-Log "Round $($State.UpdateRound): searching for updates (this can take a few minutes)..."
-        $found = @(Get-WindowsUpdate @filter)
-        if ($found.Count -eq 0) {
-            if (Get-WURebootStatus -Silent) { Restart-AndResume $State 'finishing Windows Update' }
+        Write-Progress -Id 1 -Activity 'Windows Update' -Status "Round $($State.UpdateRound): searching for updates..."
+        $search = $searcher.Search('IsInstalled=0 and IsHidden=0')
+        Write-Progress -Id 1 -Activity 'Windows Update' -Completed
+
+        $todo = @()
+        foreach ($u in @($search.Updates)) {
+            $cats = @($u.Categories | ForEach-Object { $_.Name })
+            $skip = $null
+            if ($u.Type -eq 2 -and -not $Config.IncludeDrivers) { $skip = 'drivers turned off' }
+            elseif ($hit = $cats | Where-Object { $_ -in @($Config.ExcludeCategories) } | Select-Object -First 1) { $skip = "category '$hit' excluded" }
+            elseif ($Config.ExcludeTitle -and $u.Title -match $Config.ExcludeTitle) { $skip = "title matches '$($Config.ExcludeTitle)'" }
+
+            $size = Format-Size $u.MaxDownloadSize
+            if ($skip) {
+                Write-Log "[skipped]    $($u.Title) - $skip" 'Warn'
+            } else {
+                $tag = if ($u.IsDownloaded) { '[downloaded]' } else { '[download]  ' }
+                Write-Log "$tag $($u.Title)  ($size)"
+                if (-not $u.EulaAccepted) { try { $u.AcceptEula() } catch { } }
+                $todo += $u
+            }
+        }
+
+        if ($todo.Count -eq 0) {
+            $pending = Get-PendingReboot
+            if ($pending) { Restart-AndResume $State "finishing Windows Update ($($pending -join ', '))" }
             Write-Log 'Windows is up to date.' 'Ok'
             Add-Result $State 'Windows Update' "Up to date ($($State.UpdateRound) rounds)"
             return
         }
 
-        $found | ForEach-Object { Write-Log "$($_.KB) $($_.Title)" }
-        Write-Log "Installing $($found.Count) update(s)..."
-        Install-WindowsUpdate @filter -AcceptAll -IgnoreReboot | Out-Null
+        $installed = 0
+        $failed = @()
+        for ($i = 0; $i -lt $todo.Count; $i++) {
+            $u = $todo[$i]
+            if (-not $u.IsDownloaded) {
+                $r = Invoke-WuStep -Session $session -Update $u -Kind Download -Index ($i + 1) -Total $todo.Count
+                if ([int]$r.ResultCode -notin 2, 3) {
+                    Write-Log "Download failed: $($u.Title) - $(Get-WuResultText $r)" 'Error'
+                    $failed += $u.Title
+                    continue
+                }
+            }
+            $r = Invoke-WuStep -Session $session -Update $u -Kind Install -Index ($i + 1) -Total $todo.Count
+            if ([int]$r.ResultCode -in 2, 3) {
+                $installed++
+                Write-Log "Installed: $($u.Title)$(if ($r.RebootRequired) { ' (restart needed)' })" 'Ok'
+            } else {
+                Write-Log "Install failed: $($u.Title) - $(Get-WuResultText $r)" 'Error'
+                $failed += $u.Title
+            }
+        }
+        Write-Progress -Id 1 -Activity 'Windows Update' -Completed
+        Write-Log "Round $($State.UpdateRound): $installed installed, $($failed.Count) failed."
 
-        if (Get-WURebootStatus -Silent) { Restart-AndResume $State 'Windows Update needs a restart' }
+        $pending = Get-PendingReboot
+        if ($pending) { Restart-AndResume $State 'Windows Update needs a restart' }
+        if ($installed -eq 0) {
+            # Nothing worked and no restart would help - don't loop on the same failures.
+            Write-Log 'Updates keep failing - moving on. Retry them from Settings > Windows Update afterwards.' 'Warn'
+            Add-Result $State 'Windows Update' "FAILED - $($failed -join '; ')"
+            return
+        }
     }
 }
 
@@ -331,6 +505,7 @@ function Install-FileApp($App) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         $path = Join-Path $dir ([IO.Path]::GetFileName(([uri]$App.DownloadUrl).AbsolutePath))
         Write-Log "Downloading $($App.DownloadUrl)"
+        $ProgressPreference = 'SilentlyContinue'   # the PS 5.1 progress bar makes downloads crawl
         Invoke-WebRequest -Uri $App.DownloadUrl -OutFile $path -UseBasicParsing
     } else {
         $path = Resolve-KitPath $App.Installer
