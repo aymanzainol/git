@@ -7,3 +7,8 @@
 
 .trash/
 .DS_Store
+
+# PC-Setup: installers are company files - keep them on the USB stick, not in git
+PC-Setup/installers/**
+!PC-Setup/installers/*/
+!PC-Setup/installers/*/README.txt
