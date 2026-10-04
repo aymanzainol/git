@@ -1,0 +1,21 @@
+<!--
+  Test PC-Setup in Windows Sandbox (Windows 10/11 Pro or Enterprise).
+  1. Turn on "Windows Sandbox" in "Turn Windows features on or off" (needs a restart once).
+  2. Copy the PC-Setup folder to C:\PC-Setup (or change HostFolder below).
+  3. Double-click this file.
+  Windows Update is skipped (Sandbox has it turned off) and so is the domain join.
+  Everything inside the Sandbox is thrown away when you close it.
+-->
+<Configuration>
+  <MemoryInMB>8192</MemoryInMB>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\PC-Setup</HostFolder>
+      <SandboxFolder>C:\PC-Setup</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>cmd.exe /c start "PC-Setup test" cmd.exe /k powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\PC-Setup\Setup-NewPC.ps1 -SkipWindowsUpdate -Unattended</Command>
+  </LogonCommand>
+</Configuration>

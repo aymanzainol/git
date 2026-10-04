@@ -22,12 +22,17 @@
 
 .PARAMETER SkipDomainJoin
     Do everything except the domain join.
+
+.PARAMETER Unattended
+    No questions and no restart prompt at the end (keeps the current PC name).
+    For testing in Windows Sandbox or CI. Exit code 2 = something failed.
 #>
 [CmdletBinding()]
 param(
     [switch]$Resume,
     [switch]$SkipWindowsUpdate,
-    [switch]$SkipDomainJoin
+    [switch]$SkipDomainJoin,
+    [switch]$Unattended
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,7 +81,8 @@ function New-State {
         ComputerName      = $null
         DomainName        = $null
         SkipWindowsUpdate = [bool]$SkipWindowsUpdate
-        SkipDomainJoin    = [bool]$SkipDomainJoin
+        SkipDomainJoin    = [bool]($SkipDomainJoin -or $Unattended)
+        Unattended        = [bool]$Unattended
         Results           = @()
         StartedAt         = Get-Date
     }
@@ -284,11 +290,17 @@ function Install-WingetApp($App) {
     throw "winget exit code $code"
 }
 
+function Resolve-KitPath([string]$Path) {
+    if ([IO.Path]::IsPathRooted($Path)) { $Path } else { Join-Path $KitDir $Path }
+}
+
+function Get-SkipReason($App) {
+    if ((Test-NotConfigured $App.Installer) -or (Test-NotConfigured $App.Arguments)) { return 'not configured in config.psd1 (CHANGE-ME)' }
+    if ($App.Installer -and -not (Test-Path (Resolve-KitPath $App.Installer))) { return "installer not found: $(Resolve-KitPath $App.Installer)" }
+}
+
 function Install-FileApp($App) {
-    if (Test-NotConfigured $App.Installer) { throw 'Not configured in config.psd1' }
-    $path = $App.Installer
-    if (-not [IO.Path]::IsPathRooted($path)) { $path = Join-Path $KitDir $path }
-    if (-not (Test-Path $path)) { throw "Installer not found: $path" }
+    $path = Resolve-KitPath $App.Installer
 
     if ($path -like '*.msi') {
         $file = 'msiexec.exe'
@@ -310,15 +322,17 @@ function Invoke-AppsStage($State, $Config) {
     foreach ($app in $Config.Apps) {
         Write-Log $app.Name 'Step'
         try {
-            if (Test-NotConfigured $app.Arguments) { throw 'Not configured in config.psd1 (CHANGE-ME)' }
+            $skip = Get-SkipReason $app
             if (Test-AppInstalled $app.Detect) {
                 $result = 'Already installed'
+            } elseif ($skip) {
+                $result = "Skipped - $skip"
             } elseif ($app.WingetId) {
                 $result = Install-WingetApp $app
             } else {
                 $result = Install-FileApp $app
             }
-            Write-Log "$($app.Name): $result" 'Ok'
+            Write-Log "$($app.Name): $result" $(if ($skip -and $result -like 'Skipped*') { 'Warn' } else { 'Ok' })
         } catch {
             $result = "FAILED - $($_.Exception.Message)"
             Write-Log "$($app.Name): $result" 'Error'
@@ -375,7 +389,7 @@ if (-not (Test-IsAdmin)) {
 
 New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
 try { Start-Transcript -Path (Join-Path $WorkDir 'transcript.log') -Append | Out-Null } catch { }
-$Host.UI.RawUI.WindowTitle = 'New PC setup - do not close'
+try { $Host.UI.RawUI.WindowTitle = 'New PC setup - do not close' } catch { }
 
 try {
     $state = $null
@@ -383,7 +397,7 @@ try {
 
     if (-not $Resume) {
         if ($state -and $state.Stage -ne 'Done') {
-            $answer = Read-Host "A setup is already in progress (stage: $($state.Stage)). Continue it? [Y/n]"
+            $answer = if ($Unattended) { 'y' } else { Read-Host "A setup is already in progress (stage: $($state.Stage)). Continue it? [Y/n]" }
             if ($answer -match '^n') { $state = $null }
         } else {
             $state = $null
@@ -402,7 +416,7 @@ try {
             $config = Import-PowerShellDataFile (Join-Path $KitDir 'config.psd1')
 
             # Ask everything up front so the rest runs unattended.
-            if ($config.AskForComputerName) {
+            if ($config.AskForComputerName -and -not $Unattended) {
                 do {
                     $name = (Read-Host "New computer name (Enter = keep '$env:COMPUTERNAME')").Trim()
                     $valid = (-not $name) -or ($name -match '^[A-Za-z0-9-]{1,15}$' -and $name -notmatch '^\d+$')
@@ -441,6 +455,7 @@ try {
         exit 0
     }
 
+    if ($state.Unattended) { $Unattended = $true }
     if ($Resume) { Write-Log "Resuming setup at stage: $($state.Stage)" 'Step'; Start-Sleep -Seconds 10 }
     $config = Import-PowerShellDataFile (Join-Path $KitDir 'config.psd1')
     Wait-ForInternet
@@ -466,6 +481,10 @@ try {
     }
     Write-Log "Full log: $LogFile"
     Write-Host ''
+    if ($Unattended) {
+        if ($state.Results | Where-Object { $_.Result -like 'FAILED*' }) { exit 2 }
+        exit 0
+    }
     $answer = Read-Host 'Restart now to finish (needed for the domain join)? [Y/n]'
     if ($answer -notmatch '^n') {
         try { Stop-Transcript | Out-Null } catch { }
@@ -475,7 +494,7 @@ try {
 catch {
     Write-Log "Setup stopped: $($_.Exception.Message)" 'Error'
     Write-Log "Fix the problem and run Start-Setup.cmd again - it continues where it left off. Log: $LogFile" 'Error'
-    Read-Host 'Press Enter to close'
+    if (-not $Unattended) { Read-Host 'Press Enter to close' }
     exit 1
 }
 finally {

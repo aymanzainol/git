@@ -1,0 +1,64 @@
+name: PC-Setup test (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'PC-Setup/**'
+      - '.github/workflows/pc-setup-test.yml'
+
+jobs:
+  apps:
+    name: Store updates + program installs
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Setup-NewPC.ps1 (no Windows Update, no domain join)
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File PC-Setup\Setup-NewPC.ps1 -SkipWindowsUpdate -Unattended
+          $code = $LASTEXITCODE
+          "Script exit code: $code"
+          exit $code
+
+      - name: Check the programs are really there
+        if: always()
+        shell: powershell
+        run: |
+          $checks = [ordered]@{
+            'Google Chrome' = { Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe" }
+            'Foxit Reader'  = { [bool](Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -EA SilentlyContinue | ? DisplayName -like 'Foxit PDF Reader*') }
+            'WinRAR'        = { Test-Path "$env:ProgramFiles\WinRAR\WinRAR.exe" }
+            'Microsoft 365' = { Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE" }
+            'Resume task removed' = { -not (Get-ScheduledTask -TaskName 'PCSetup-Resume' -EA SilentlyContinue) }
+          }
+          $fail = $false
+          foreach ($k in $checks.Keys) { $ok = & $checks[$k]; "{0,-22} {1}" -f $k, $(if ($ok) {'OK'} else {'MISSING'}); if (-not $ok) { $fail = $true } }
+          if ($fail) { exit 1 }
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-setup-logs
+          path: C:\ProgramData\PCSetup\*.log
+
+  windows-update:
+    name: Windows Update search (no install)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install PSWindowsUpdate and list available updates
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers | Out-Null
+          Install-Module PSWindowsUpdate -Repository PSGallery -Scope AllUsers -Force -AllowClobber
+          Import-Module PSWindowsUpdate
+          try { Add-WUServiceManager -MicrosoftUpdate -Confirm:$false | Out-Null } catch { "Add-WUServiceManager: $_" }
+          $u = @(Get-WindowsUpdate -MicrosoftUpdate -NotCategory 'Upgrades' -NotTitle 'Preview')
+          "Found $($u.Count) update(s):"
+          $u | Format-Table KB, Size, Title -AutoSize | Out-String -Width 200
+          "Reboot pending: $(Get-WURebootStatus -Silent)"
