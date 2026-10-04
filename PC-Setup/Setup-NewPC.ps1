@@ -615,6 +615,15 @@ try {
     if (Test-Path $StateFile) { $state = Import-Clixml $StateFile }
 
     if (-not $Resume) {
+        # Run from a local copy so the USB stick / share can go away during reboots.
+        # Refreshed on every manual start, so a newer kit also takes over a run in progress.
+        if ($PSScriptRoot -ne $KitDir) {
+            Write-Log "Copying setup kit to $KitDir..."
+            robocopy $PSScriptRoot $KitDir /MIR /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw "Copying the kit failed (robocopy code $LASTEXITCODE)." }
+            Get-ChildItem $KitDir -Recurse -File | Unblock-File
+        }
+
         if ($state -and $state.Stage -ne 'Done') {
             $answer = if ($Unattended) { 'y' } else { Read-Host "A setup is already in progress (stage: $($state.Stage)). Continue it? [Y/n]" }
             if ($answer -match '^n') { $state = $null }
@@ -624,13 +633,6 @@ try {
 
         if (-not $state) {
             Write-Log 'New PC setup' 'Step'
-            # Run from a local copy so the USB stick / share can go away during reboots.
-            if ($PSScriptRoot -ne $KitDir) {
-                Write-Log "Copying setup kit to $KitDir..."
-                robocopy $PSScriptRoot $KitDir /MIR /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null
-                if ($LASTEXITCODE -ge 8) { throw "Copying the kit failed (robocopy code $LASTEXITCODE)." }
-                Get-ChildItem $KitDir -Recurse -File | Unblock-File
-            }
             $state = New-State
             $config = Import-PowerShellDataFile (Join-Path $KitDir 'config.psd1')
 
