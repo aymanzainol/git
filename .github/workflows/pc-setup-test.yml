@@ -11,13 +11,16 @@ jobs:
   apps:
     name: Store updates + program installs
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
       - name: Run Setup-NewPC.ps1 (no Windows Update, no domain join)
         shell: powershell
         run: |
+          # The runner image ships big developer tools a company PC won't have - don't spend the run updating them.
+          $cfg = 'PC-Setup\config.psd1'
+          (Get-Content $cfg) -replace 'UpgradeExclude\s*=\s*@\(\)', "UpgradeExclude = @('Microsoft.VisualStudio*','LLVM.*','Microsoft.VCRedist.*','ShiningLight.*','sbt.*','JRSoftware.*','ImageMagick.*')" | Set-Content $cfg
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File PC-Setup\Setup-NewPC.ps1 -SkipWindowsUpdate -Unattended
           $code = $LASTEXITCODE
           "Script exit code: $code"

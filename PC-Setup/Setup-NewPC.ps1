@@ -251,7 +251,7 @@ function Invoke-WindowsUpdateStage($State, $Config) {
     }
 }
 
-function Invoke-StoreUpdateStage($State) {
+function Invoke-StoreUpdateStage($State, $Config) {
     Write-Log 'Microsoft Store and app updates' 'Step'
     try {
         Get-CimInstance -Namespace 'root\cimv2\mdm\dmmap' -ClassName 'MDM_EnterpriseModernAppManagement_AppManagement01' |
@@ -263,14 +263,40 @@ function Invoke-StoreUpdateStage($State) {
 
     $winget = Get-Winget
     Invoke-Native $winget @('source', 'update', '--disable-interactivity') | Out-Null
-    Write-Log 'Upgrading everything winget can see...'
-    $code = Invoke-Native $winget @('upgrade', '--all', '--silent', '--include-unknown',
-        '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
-    if ($code -in $WingetOk) {
-        Add-Result $State 'Store / app updates' 'Done'
-    } else {
-        Write-Log "winget upgrade finished with code $code (some apps may not have updated)." 'Warn'
-        Add-Result $State 'Store / app updates' "Partial (winget code $code)"
+    $flags = @('--silent', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+
+    $ids = Get-UpgradablePackages
+    if ($null -eq $ids) {
+        Write-Log 'Upgrading everything winget can see...'
+        $code = Invoke-Native $winget (@('upgrade', '--all', '--include-unknown') + $flags)
+        if ($code -in $WingetOk) { Add-Result $State 'Store / app updates' 'Done' }
+        else { Add-Result $State 'Store / app updates' "Partial (winget code $code)" }
+        return
+    }
+
+    # One package at a time so a single failure doesn't abort the rest, and App Installer
+    # last because upgrading it replaces winget.exe while it's running.
+    $ids = @($ids | Where-Object { $id = $_; -not (@($Config.UpgradeExclude) | Where-Object { $_ -and $id -like $_ }) })
+    $ids = @($ids | Where-Object { $_ -ne 'Microsoft.AppInstaller' }) + @($ids | Where-Object { $_ -eq 'Microsoft.AppInstaller' })
+    Write-Log "$($ids.Count) app update(s) available."
+    $failed = @()
+    foreach ($id in $ids) {
+        Write-Log "Updating $id..."
+        $code = Invoke-Native $winget (@('upgrade', '--id', $id, '--exact') + $flags)
+        if ($code -notin $WingetOk) { Write-Log "$id did not update (winget code $code)." 'Warn'; $failed += $id }
+    }
+    if ($failed) { Add-Result $State 'Store / app updates' "Partial - not updated: $($failed -join ', ')" }
+    else { Add-Result $State 'Store / app updates' "Done ($($ids.Count) updated)" }
+}
+
+function Get-UpgradablePackages {
+    # Returns winget IDs with an update, or $null if the list can't be read.
+    try {
+        Import-GalleryModule 'Microsoft.WinGet.Client'
+        return , @(Get-WinGetPackage -Source winget | Where-Object { $_.IsUpdateAvailable } | ForEach-Object { $_.Id })
+    } catch {
+        Write-Log "Couldn't list app updates individually ($($_.Exception.Message)) - using 'winget upgrade --all'." 'Warn'
+        return $null
     }
 }
 
@@ -296,11 +322,26 @@ function Resolve-KitPath([string]$Path) {
 
 function Get-SkipReason($App) {
     if ((Test-NotConfigured $App.Installer) -or (Test-NotConfigured $App.Arguments)) { return 'not configured in config.psd1 (CHANGE-ME)' }
-    if ($App.Installer -and -not (Test-Path (Resolve-KitPath $App.Installer))) { return "installer not found: $(Resolve-KitPath $App.Installer)" }
+    if ($App.Installer -and -not $App.DownloadUrl -and -not (Test-Path (Resolve-KitPath $App.Installer))) { return "installer not found: $(Resolve-KitPath $App.Installer)" }
 }
 
 function Install-FileApp($App) {
-    $path = Resolve-KitPath $App.Installer
+    if ($App.DownloadUrl) {
+        $dir = Join-Path $WorkDir 'downloads'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        $path = Join-Path $dir ([IO.Path]::GetFileName(([uri]$App.DownloadUrl).AbsolutePath))
+        Write-Log "Downloading $($App.DownloadUrl)"
+        Invoke-WebRequest -Uri $App.DownloadUrl -OutFile $path -UseBasicParsing
+    } else {
+        $path = Resolve-KitPath $App.Installer
+    }
+    if ($App.Signer) {
+        $sig = Get-AuthenticodeSignature -FilePath $path
+        if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notlike "*O=$($App.Signer),*") {
+            throw "digital signature check failed ($($sig.Status), $($sig.SignerCertificate.Subject))"
+        }
+        Write-Log "Signature OK: $($App.Signer)"
+    }
 
     if ($path -like '*.msi') {
         $file = 'msiexec.exe'
@@ -309,6 +350,7 @@ function Install-FileApp($App) {
         $file = $path
         $arguments = "$($App.Arguments)".Trim()
     }
+    $arguments = $arguments.Replace('{KIT}', $KitDir)
     Write-Log "Running $([IO.Path]::GetFileName($path)) $($arguments -replace 'CID=\S+', 'CID=***')"
     $start = @{ FilePath = $file; Wait = $true; PassThru = $true }
     if ($arguments) { $start.ArgumentList = $arguments }
@@ -331,6 +373,7 @@ function Invoke-AppsStage($State, $Config) {
                 $result = Install-WingetApp $app
             } else {
                 $result = Install-FileApp $app
+                if ($app.Detect -and -not (Test-AppInstalled $app.Detect)) { throw 'installer finished but the program was not found afterwards' }
             }
             Write-Log "$($app.Name): $result" $(if ($skip -and $result -like 'Skipped*') { 'Warn' } else { 'Ok' })
         } catch {
@@ -388,6 +431,7 @@ if (-not (Test-IsAdmin)) {
 }
 
 New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 try { Start-Transcript -Path (Join-Path $WorkDir 'transcript.log') -Append | Out-Null } catch { }
 try { $Host.UI.RawUI.WindowTitle = 'New PC setup - do not close' } catch { }
 
@@ -463,7 +507,7 @@ try {
     while ($state.Stage -ne 'Done') {
         switch ($state.Stage) {
             'WindowsUpdate' { Invoke-WindowsUpdateStage $state $config }
-            'StoreUpdates'  { Invoke-StoreUpdateStage   $state }
+            'StoreUpdates'  { Invoke-StoreUpdateStage   $state $config }
             'Apps'          { Invoke-AppsStage          $state $config }
             'DomainJoin'    { Invoke-DomainJoinStage    $state $config }
         }

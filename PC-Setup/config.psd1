@@ -16,17 +16,31 @@
     ExcludeTitle      = 'Preview'            # skip optional "Preview" updates
     IncludeDrivers    = $true
 
+    # --- App updates (winget) --------------------------------------------
+    UpgradeExclude    = @()                  # winget IDs not to update, wildcards ok, e.g. @('Microsoft.VisualStudio*')
+
     # --- Programs, installed top to bottom -------------------------------
     #  WingetId  : installed from winget (internet)
+    #  DownloadUrl : downloaded at install time (Signer = required code-signing company)
     #  Installer : a file in this kit (relative path) or a full/UNC path
     #              .msi files get "/i <file> /qn /norestart" automatically
+    #              {KIT} in Arguments = the folder this kit runs from
     #  Detect    : how to tell it's already installed, so re-runs skip it
     #              Service = '<service name>' | Path = '<file or folder>' | DisplayName = '<Programs and Features name, wildcards ok>'
     Apps = @(
         @{ Name = 'Google Chrome';      WingetId = 'Google.Chrome';     Scope = 'machine' }
         @{ Name = 'Foxit PDF Reader';   WingetId = 'Foxit.FoxitReader'; Scope = 'machine' }
         @{ Name = 'WinRAR';             WingetId = 'RARLab.WinRAR';     Scope = 'machine' }
-        @{ Name = 'Microsoft 365 Apps'; WingetId = 'Microsoft.Office' }
+
+        # Office Deployment Tool straight from Microsoft (signature checked).
+        # Edition, language and channel are set in office\configuration.xml.
+        @{
+            Name        = 'Microsoft 365 Apps'
+            DownloadUrl = 'https://officecdn.microsoft.com/pr/wsus/setup.exe'
+            Signer      = 'Microsoft Corporation'
+            Arguments   = '/configure "{KIT}\office\configuration.xml"'
+            Detect      = @{ Path = '%ProgramFiles%\Microsoft Office\root\Office16\WINWORD.EXE' }
+        }
 
         # Copy your Keyloop Drive installer into installers\Keyloop\ and set the
         # file name + silent switches you normally use.
