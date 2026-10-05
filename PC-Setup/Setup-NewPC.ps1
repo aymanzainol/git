@@ -719,30 +719,30 @@ $ClickWatcher = {
         for ($i = 0; $i -lt $ids.Count; $i++) { $ids += @($all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -notin $ids } | ForEach-Object { [int]$_.ProcessId }) }
         $ids
     }
-    $W = [PCSetup.Wizard]
+    $Wiz = [PCSetup.Wizard]
     $seen = @{}   # what has been reported already, so each window/error is logged once
     while (-not $Sync.Stop) {
         Start-Sleep -Milliseconds 1500
         try {
-            $windows = @($W::Windows([int[]](Get-Tree $ProcessId)))
+            $windows = @($Wiz::Windows([int[]](Get-Tree $ProcessId)))
             $Sync.Polls++
             if ($windows) { $Sync.SawWindow = $true }
-            foreach ($w in $windows) {
-                $controls = @($W::Children($w) | Where-Object { $W::IsWindowVisible($_) })
-                $buttons  = @($controls | Where-Object { $W::IsPushButton($_) })
-                $desc = "window '$($W::Text($w))': buttons " + (($buttons | ForEach-Object { "'$($W::Text($_) -replace '&', '')'$(if (-not $W::IsWindowEnabled($_)) { '(off)' })" }) -join ', ')
+            foreach ($win in $windows) {
+                $controls = @($Wiz::Children($win) | Where-Object { $Wiz::IsWindowVisible($_) })
+                $buttons  = @($controls | Where-Object { $Wiz::IsPushButton($_) })
+                $desc = "window '$($Wiz::Text($win))': buttons " + (($buttons | ForEach-Object { "'$($Wiz::Text($_) -replace '&', '')'$(if (-not $Wiz::IsWindowEnabled($_)) { '(off)' })" }) -join ', ')
                 if (-not $seen[$desc]) { $seen[$desc] = $true; $Sync.Messages.Enqueue($desc) }
 
-                foreach ($cb in @($controls | Where-Object { $W::IsCheckBox($_) })) {
-                    $label = $W::Text($cb) -replace '&', ''
-                    if ($Check -and ($Check | Where-Object { $label -like $_ }) -and -not $W::IsChecked($cb)) {
-                        $W::Check($cb); $Sync.Messages.Enqueue("ticked '$label'")
+                foreach ($cb in @($controls | Where-Object { $Wiz::IsCheckBox($_) })) {
+                    $label = $Wiz::Text($cb) -replace '&', ''
+                    if ($Check -and ($Check | Where-Object { $label -like $_ }) -and -not $Wiz::IsChecked($cb)) {
+                        $Wiz::Check($cb); $Sync.Messages.Enqueue("ticked '$label'")
                     }
                 }
-                $button = $buttons | Where-Object { $W::IsWindowEnabled($_) -and ($W::Text($_) -replace '&', '').Trim() -match $ButtonPattern } | Select-Object -First 1
+                $button = $buttons | Where-Object { $Wiz::IsWindowEnabled($_) -and ($Wiz::Text($_) -replace '&', '').Trim() -match $ButtonPattern } | Select-Object -First 1
                 if ($button) {
-                    $name = ($W::Text($button) -replace '&', '').Trim()
-                    $W::Press($button)
+                    $name = ($Wiz::Text($button) -replace '&', '').Trim()
+                    $Wiz::Press($button)
                     $Sync.Messages.Enqueue("clicked '$name'")
                     $Sync.LastClick = Get-Date
                     Start-Sleep -Seconds 2
