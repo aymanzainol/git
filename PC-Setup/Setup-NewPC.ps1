@@ -26,6 +26,10 @@
 .PARAMETER FirstLogonCleanup
     Used by a SYSTEM task at the first sign-in after setup. You don't need to pass it.
 
+.PARAMETER SetupUser
+    For a PC that is already on the domain: ask for the user, set up classic Outlook,
+    OneDrive and a one-time automatic sign-in, then restart (Setup-User.cmd).
+
 .PARAMETER Unattended
     No questions and no restart prompt at the end (keeps the current PC name).
     For testing in Windows Sandbox or CI. Exit code 2 = something failed.
@@ -36,7 +40,8 @@ param(
     [switch]$SkipWindowsUpdate,
     [switch]$SkipDomainJoin,
     [switch]$Unattended,
-    [switch]$FirstLogonCleanup
+    [switch]$FirstLogonCleanup,
+    [switch]$SetupUser
 )
 
 $ErrorActionPreference = 'Stop'
@@ -1096,6 +1101,26 @@ function Register-FirstLogonTasks($State) {
     Register-ScheduledTask -TaskName $CleanupTaskName -Action $action -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
 }
 
+function Get-LogonNotice {
+    # A logon message (legal notice) from Group Policy stops automatic sign-in until someone clicks OK.
+    $p = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -ErrorAction SilentlyContinue
+    if ("$($p.legalnoticecaption)$($p.legalnoticetext)".Trim()) { return "$($p.legalnoticecaption)".Trim() }
+}
+
+function Read-DomainUser([string]$Domain) {
+    # Asks for the user who will use the PC and checks the password against the domain. $null = skipped.
+    $user = (Read-Host 'Domain user who will use this PC - it signs in as them once after setup (e.g. ahmed.ali, Enter = skip)').Trim()
+    for ($try = 1; $user -and $try -le 3; $try++) {
+        $pw = Read-Host "Password for $user" -AsSecureString
+        $cred = New-Object System.Management.Automation.PSCredential($user, $pw)
+        $ok = Test-DomainCredential $Domain $cred
+        if ($ok -eq $false) { Write-Log 'That password is wrong - try again.' 'Warn'; continue }
+        if ($null -eq $ok) { Write-Log "Couldn't reach $Domain to check the password - using it as typed." 'Warn' }
+        return $cred
+    }
+    return $null
+}
+
 function Invoke-UserSetupStage($State, $Config) {
     if ($State.SkipDomainJoin) { return }
     $joined = $State.Results | Where-Object { $_.Item -eq 'Domain join' -and $_.Result -notlike 'FAILED*' -and $_.Result -ne 'Skipped' }
@@ -1121,6 +1146,9 @@ function Invoke-UserSetupStage($State, $Config) {
             $account = Set-AutoLogon (Import-Clixml $UserCredFile) $State.DomainName
             Write-Log "After the restart the PC signs in as $account (once)." 'Ok'
             Add-Result $State 'First sign-in' "Signs in automatically as $account after the restart"
+            if ($notice = Get-LogonNotice) {
+                Write-Log "A logon message from Group Policy ('$notice') appears before sign-in. Click OK on it after the restart - the automatic sign-in continues after that." 'Warn'
+            }
         } catch {
             Write-Log "Couldn't set up automatic sign-in: $($_.Exception.Message)" 'Error'
             Add-Result $State 'First sign-in' "FAILED - $($_.Exception.Message)"
@@ -1161,6 +1189,33 @@ if ($FirstLogonCleanup) {
     try { Invoke-FirstLogonCleanup } catch { Write-Log "First sign-in cleanup failed: $($_.Exception.Message)" 'Error'; exit 1 }
     exit 0
 }
+if ($SetupUser) {
+    try {
+        Write-Log 'First sign-in setup for a PC already on the domain' 'Step'
+        $cs = Get-CimInstance Win32_ComputerSystem
+        if (-not $cs.PartOfDomain) { throw 'this PC is not on a domain yet - run Start-Setup.cmd first' }
+        if ($PSScriptRoot -ne $KitDir) {
+            robocopy $PSScriptRoot $KitDir /E /XD installers /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null   # the scripts, not the installers
+        }
+        $config = Import-PowerShellDataFile (Join-Path $KitDir 'config.psd1')
+        $cred = Read-DomainUser $cs.Domain
+        if (-not $cred) { throw 'no user given' }
+        Set-MachinePolicies $config
+        Set-DefaultUserSettings
+        Register-FirstLogonTasks @{ UserName = $cred.UserName }
+        $account = Set-AutoLogon $cred $cs.Domain
+        Write-Log "Done. After the restart the PC signs in as $account (once) and opens classic Outlook and OneDrive." 'Ok'
+        if ($notice = Get-LogonNotice) {
+            Write-Log "A logon message from Group Policy ('$notice') appears before sign-in. Click OK on it after the restart - the automatic sign-in continues after that." 'Warn'
+        }
+        if ((Read-Host 'Restart now? [Y/n]') -notmatch '^n') { Restart-Computer -Force }
+        exit 0
+    } catch {
+        Write-Log "First sign-in setup stopped: $($_.Exception.Message)" 'Error'
+        Read-Host 'Press Enter to close'
+        exit 1
+    }
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 # Keep the PC awake with the screen on (no sleep, no lock) while setup runs; ends with this window.
 try {
@@ -1186,7 +1241,14 @@ try {
 
         if ($state -and $state.Stage -ne 'Done') {
             $answer = if ($Unattended) { 'y' } else { Read-Host "A setup is already in progress (stage: $($state.Stage)). Continue it? [Y/n]" }
-            if ($answer -match '^n') { $state = $null }
+            if ($answer -match '^n') {
+                $state = $null
+            } elseif (-not $Unattended -and -not $state.SkipDomainJoin -and -not $state.UserName -and $state.DomainName -and
+                      [array]::IndexOf($Stages, $state.Stage) -le [array]::IndexOf($Stages, 'UserSetup')) {
+                # Started by an older version that didn't ask yet.
+                $userCred = Read-DomainUser $state.DomainName
+                if ($userCred) { $userCred | Export-Clixml -Path $UserCredFile -Force; $state.UserName = $userCred.UserName; Save-State $state }
+            }
         } else {
             $state = $null
         }
@@ -1224,19 +1286,10 @@ try {
                     if ($cred) { $cred | Export-Clixml -Path $CredFile -Force }
 
                     if ($config.AskForUser -and -not $Unattended) {
-                        $userCred = $null
-                        $user = (Read-Host 'Domain user who will use this PC - it signs in as them once after setup (e.g. ahmed.ali, Enter = skip)').Trim()
-                        for ($try = 1; $user -and $try -le 3; $try++) {
-                            $pw = Read-Host "Password for $user" -AsSecureString
-                            $userCred = New-Object System.Management.Automation.PSCredential($user, $pw)
-                            $ok = Test-DomainCredential $state.DomainName $userCred
-                            if ($ok -eq $false) { Write-Log 'That password is wrong - try again.' 'Warn'; $userCred = $null; continue }
-                            if ($null -eq $ok) { Write-Log "Couldn't reach $($state.DomainName) to check the password - using it as typed." 'Warn' }
-                            break
-                        }
+                        $userCred = Read-DomainUser $state.DomainName
                         if ($userCred) {
                             $userCred | Export-Clixml -Path $UserCredFile -Force
-                            $state.UserName = $user
+                            $state.UserName = $userCred.UserName
                         }
                     }
                 } else {

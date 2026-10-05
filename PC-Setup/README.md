@@ -49,6 +49,8 @@ After the domain join and the final restart:
 
 Automatic sign-in doesn't work if a Group Policy shows a logon message ("legal notice") before sign-in. In that case, the user signs in themselves, and Outlook and OneDrive still open.
 
+**PC already on the domain?** Double-click **`Setup-User.cmd`**. It asks for the user and their password, sets up classic Outlook, OneDrive and the one-time automatic sign-in, and restarts. Use it when setup ran without the user question, for example a run started by an older version, or one run with `-SkipDomainJoin`, which skips this part.
+
 Logs: `%LOCALAPPDATA%\PCSetup-FirstLogon.log` in the user's profile.
 
 ## Things to know
