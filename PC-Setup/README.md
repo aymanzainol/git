@@ -45,7 +45,7 @@ After the domain join and the final restart:
 - **Classic Outlook opens and creates the mailbox profile** from the signed-in account. The "Try the new Outlook" switch is hidden, automatic migration to new Outlook is turned off, and the "new Outlook" app is removed (`RemoveNewOutlookApp`).
 - Outlook and OneDrive also open once for anyone else who signs in later, if no user was given.
 
-**No password prompts in Outlook and OneDrive** needs your domain to be linked to Microsoft 365 (Entra Connect with hybrid join). The script can't set that up, because it's configured on your servers. Without it, Outlook and OneDrive open with the right account and ask for the password once. The new PC can also take up to about 30 minutes to finish hybrid-joining after its first start.
+**The first time, classic Outlook asks for the password once.** After the PC is registered to the user in Microsoft 365, it stops asking. If your domain is linked to Microsoft 365 (Entra Connect with hybrid join), the script starts Windows' device registration at the first sign-in instead of waiting for Windows' own schedule. The registration still depends on your directory sync, so it can take a while to finish.
 
 Automatic sign-in doesn't work if a Group Policy shows a logon message ("legal notice") before sign-in. In that case, the user signs in themselves, and Outlook and OneDrive still open.
 

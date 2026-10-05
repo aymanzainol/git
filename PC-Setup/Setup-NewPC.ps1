@@ -853,6 +853,14 @@ function Invoke-UserSetupStage($State, $Config) {
 
 function Invoke-FirstLogonCleanup {
     Clear-AutoLogon
+    # Register the PC with Microsoft 365 (hybrid join) now rather than at Windows' next scheduled try,
+    # so Outlook and OneDrive stop asking for the password sooner. Does nothing if the domain isn't set up for it.
+    try {
+        Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join'
+        Write-Log 'Started the Microsoft 365 device registration (hybrid join).'
+    } catch {
+        Write-Log "Couldn't start the device registration task: $($_.Exception.Message)" 'Warn'
+    }
     Unregister-ScheduledTask -TaskName $CleanupTaskName -Confirm:$false -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $KitDir 'installers') -Recurse -Force -ErrorAction SilentlyContinue
     Write-Log 'First sign-in done: automatic sign-in is off, the saved password and the installer copies are removed.' 'Ok'
