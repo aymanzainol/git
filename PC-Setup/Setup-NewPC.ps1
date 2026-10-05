@@ -644,52 +644,105 @@ function Stop-InstallerTree([Diagnostics.Process]$Process) {
 
 $ClickButtons = '^(Next|I Agree|I Accept|Accept|Install|Finish|Close|OK)\b'
 
-# Runs in a background runspace so a hung UI Automation call can never freeze setup.
+# Finds and presses buttons in classic setup wizards (Win32 dialogs) by talking to the windows
+# directly - works where UI Automation sees the window but not its buttons.
+$WizardSource = @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+namespace PCSetup {
+    public static class Wizard {
+        delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
+        [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+        [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumProc f, IntPtr l);
+        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+        [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hwnd);
+        [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr hwnd);
+        [DllImport("user32.dll")] static extern int GetDlgCtrlID(IntPtr hwnd);
+        [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd, StringBuilder s, int n);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr w, StringBuilder l, uint flags, uint timeout, out IntPtr result);
+        [DllImport("user32.dll")] static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr w, IntPtr l, uint flags, uint timeout, out IntPtr result);
+        [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr w, IntPtr l);
+
+        const uint WM_GETTEXT = 0x000D, WM_COMMAND = 0x0111, BM_GETCHECK = 0x00F0, BM_SETCHECK = 0x00F1;
+        const uint SMTO_ABORTIFHUNG = 0x0002;
+
+        public static IntPtr[] Windows(int[] pids) {
+            var set = new List<int>(pids);
+            var list = new List<IntPtr>();
+            EnumWindows((h, l) => { uint pid; GetWindowThreadProcessId(h, out pid); if (set.Contains((int)pid) && IsWindowVisible(h)) list.Add(h); return true; }, IntPtr.Zero);
+            return list.ToArray();
+        }
+        public static IntPtr[] Children(IntPtr hwnd) {
+            var list = new List<IntPtr>();
+            EnumChildWindows(hwnd, (h, l) => { list.Add(h); return true; }, IntPtr.Zero);
+            return list.ToArray();
+        }
+        public static string Text(IntPtr hwnd) {
+            var sb = new StringBuilder(512); IntPtr r;
+            SendMessageTimeout(hwnd, WM_GETTEXT, (IntPtr)sb.Capacity, sb, SMTO_ABORTIFHUNG, 2000, out r);
+            return sb.ToString();
+        }
+        public static string ClassName(IntPtr hwnd) { var sb = new StringBuilder(256); GetClassName(hwnd, sb, sb.Capacity); return sb.ToString(); }
+        static int Style(IntPtr hwnd) { return GetWindowLong(hwnd, -16) & 0xF; }
+        public static bool IsPushButton(IntPtr hwnd) {
+            if (ClassName(hwnd) != "Button") return false;
+            int s = Style(hwnd); return s == 0 || s == 1 || s == 0xC || s == 0xD || s == 0xE || s == 0xF;   // push, default, split, command link
+        }
+        public static bool IsCheckBox(IntPtr hwnd) {
+            if (ClassName(hwnd) != "Button") return false;
+            int s = Style(hwnd); return s == 2 || s == 3 || s == 5 || s == 6;
+        }
+        public static bool IsChecked(IntPtr hwnd) { IntPtr r; SendMessageTimeout(hwnd, BM_GETCHECK, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 2000, out r); return r.ToInt64() == 1; }
+        // Same message the dialog gets when the button is clicked.
+        public static void Press(IntPtr hwnd) {
+            int id = GetDlgCtrlID(hwnd);
+            PostMessage(GetParent(hwnd), WM_COMMAND, (IntPtr)(id & 0xFFFF), hwnd);   // BN_CLICKED = 0
+        }
+        public static void Check(IntPtr hwnd) {
+            IntPtr r; SendMessageTimeout(hwnd, BM_SETCHECK, (IntPtr)1, IntPtr.Zero, SMTO_ABORTIFHUNG, 2000, out r);
+            Press(hwnd);
+        }
+    }
+}
+'@
+
+# Runs in a background runspace so nothing it waits on can freeze setup.
 $ClickWatcher = {
     param($ProcessId, $ButtonPattern, $Check, $Sync)
-    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
     function Get-Tree([int]$RootId) {
         $all = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
         $ids = @($RootId)
         for ($i = 0; $i -lt $ids.Count; $i++) { $ids += @($all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -notin $ids } | ForEach-Object { [int]$_.ProcessId }) }
         $ids
     }
-    $A = [Windows.Automation.AutomationElement]
-    $buttonCond = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
-    $checkCond  = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::CheckBox)
+    $W = [PCSetup.Wizard]
     $seen = @{}   # what has been reported already, so each window/error is logged once
     while (-not $Sync.Stop) {
         Start-Sleep -Milliseconds 1500
         try {
-            $ids = Get-Tree $ProcessId
-            $windows = @($A::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) |
-                Where-Object { $_.Current.ProcessId -in $ids })
+            $windows = @($W::Windows([int[]](Get-Tree $ProcessId)))
             $Sync.Polls++
             if ($windows) { $Sync.SawWindow = $true }
             foreach ($w in $windows) {
-                $buttons = @($w.FindAll([Windows.Automation.TreeScope]::Descendants, $buttonCond))
-                $desc = "window '$($w.Current.Name)': buttons " + (($buttons | ForEach-Object { "'$($_.Current.Name)'$(if (-not $_.Current.IsEnabled) { '(off)' })" }) -join ', ')
+                $controls = @($W::Children($w) | Where-Object { $W::IsWindowVisible($_) })
+                $buttons  = @($controls | Where-Object { $W::IsPushButton($_) })
+                $desc = "window '$($W::Text($w))': buttons " + (($buttons | ForEach-Object { "'$($W::Text($_) -replace '&', '')'$(if (-not $W::IsWindowEnabled($_)) { '(off)' })" }) -join ', ')
                 if (-not $seen[$desc]) { $seen[$desc] = $true; $Sync.Messages.Enqueue($desc) }
-                foreach ($cb in $w.FindAll([Windows.Automation.TreeScope]::Descendants, $checkCond)) {
-                    if ($Check -and ($Check | Where-Object { $cb.Current.Name -like $_ })) {
-                        $toggle = $cb.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
-                        if ($toggle.Current.ToggleState -eq 'Off') { $toggle.Toggle(); $Sync.Messages.Enqueue("ticked '$($cb.Current.Name)'") }
+
+                foreach ($cb in @($controls | Where-Object { $W::IsCheckBox($_) })) {
+                    $label = $W::Text($cb) -replace '&', ''
+                    if ($Check -and ($Check | Where-Object { $label -like $_ }) -and -not $W::IsChecked($cb)) {
+                        $W::Check($cb); $Sync.Messages.Enqueue("ticked '$label'")
                     }
                 }
-                $button = $buttons |
-                    Where-Object { $_.Current.IsEnabled -and ($_.Current.Name -replace '&', '') -match $ButtonPattern -and
-                                   $_.Current.AutomationId -notin 'Close', 'Minimize', 'Maximize', 'Restore' } |   # title-bar buttons
-                    Select-Object -First 1
+                $button = $buttons | Where-Object { $W::IsWindowEnabled($_) -and ($W::Text($_) -replace '&', '').Trim() -match $ButtonPattern } | Select-Object -First 1
                 if ($button) {
-                    $name = $button.Current.Name -replace '&', ''
-                    $invoke = $null
-                    if ($button.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
-                        $invoke.Invoke()
-                    } else {
-                        # Some installers draw buttons that don't support Invoke: focus it and press Enter.
-                        $button.SetFocus()
-                        [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-                    }
+                    $name = ($W::Text($button) -replace '&', '').Trim()
+                    $W::Press($button)
                     $Sync.Messages.Enqueue("clicked '$name'")
                     $Sync.LastClick = Get-Date
                     Start-Sleep -Seconds 2
@@ -706,7 +759,8 @@ $ClickWatcher = {
 
 function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [string[]]$Check, [int]$TimeoutMinutes = 45) {
     # Presses Next / Install / Finish in the installer's own windows (keeping every default) until it exits.
-    # Only windows of the installer process or its children are touched; never Cancel, Back or the title-bar X.
+    # Only windows of the installer process or its children are touched; never Cancel or Back.
+    if (-not ('PCSetup.Wizard' -as [type])) { Add-Type -TypeDefinition $WizardSource -Language CSharp }
     $sync = [hashtable]::Synchronized(@{ Stop = $false; SawWindow = $false; Polls = 0; LastClick = Get-Date
                                          Messages = New-Object System.Collections.Concurrent.ConcurrentQueue[string] })
     $ps = [PowerShell]::Create()
@@ -737,7 +791,7 @@ function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [s
         $sync.Stop = $true
         $msg = $null
         while ($sync.Messages.TryDequeue([ref]$msg)) { Write-Log "  $AppName installer: $msg" }
-        # Don't wait on a watcher that may be stuck inside UI Automation.
+        # Don't wait on a watcher that may be stuck.
         if ($handle.AsyncWaitHandle.WaitOne(5000)) { $ps.Dispose() } else { [void]$ps.BeginStop($null, $null) }
     }
 }

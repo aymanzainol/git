@@ -202,7 +202,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
           foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
-            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk', '$ClickButtons', '$ClickWatcher') { . ([scriptblock]::Create($a.Extent.Text)) }
+            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk', '$ClickButtons', '$ClickWatcher', '$WizardSource') { . ([scriptblock]::Create($a.Extent.Text)) }
           }
           foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
           $WorkDir = "$env:RUNNER_TEMP\pcsetup"; $LogFile = "$WorkDir\setup.log"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
