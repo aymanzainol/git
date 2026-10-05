@@ -342,3 +342,37 @@ jobs:
           Check 'empty folder is reported'                 ((Get-SkipReason @{ Installer = 'installers\Nothing\*'; Arguments = 'AUTO' }) -like 'no installer found*')
 
           if ($fail) { throw "Failed: $($fail -join ', ')" }
+
+  regional:
+    name: Time zone and Arabic keyboard (persistence)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set time zone and keyboards, then check from new processes
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
+          foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
+            if ($a.Left.Extent.Text -in '$KeyboardLayouts') { . ([scriptblock]::Create($a.Extent.Text)) }
+          }
+          foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
+          $WorkDir = "$env:RUNNER_TEMP\pcsetup"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
+          $LogFile = "$WorkDir\setup.log"; $StateFile = "$WorkDir\state.xml"
+          function Show-Lang($when) {
+            "---- $when"
+            powershell -NoProfile -Command "Get-WinUserLanguageList | ForEach-Object { '{0} | {1} | {2}' -f `$_.LanguageTag, `$_.Autonym, (`$_.InputMethodTips -join ',') }"
+            "User Profile: " + ((Get-ItemProperty 'HKCU:\Control Panel\International\User Profile' -EA SilentlyContinue).Languages -join ',')
+            "Preload: " + ((Get-ItemProperty 'HKCU:\Keyboard Layout\Preload' -EA SilentlyContinue).PSObject.Properties | Where-Object Name -match '^\d+$' | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' '
+          }
+          Show-Lang 'before'
+          $state = New-State
+          Invoke-RegionalStage $state @{ TimeZone = 'Arab Standard Time'; Keyboards = @('en-US', 'ar-SA') }
+          Get-Content $LogFile
+          Show-Lang 'right after (new process)'
+          Get-WindowsCapability -Online -Name 'Language.Basic~~~ar-SA*' -EA SilentlyContinue | Format-Table Name, State -AutoSize | Out-String
+          Get-ScheduledTask -TaskPath '\Microsoft\Windows\LanguageComponentsInstaller\' -EA SilentlyContinue | Format-Table TaskName, State -AutoSize | Out-String
+          Start-Sleep -Seconds 180
+          Show-Lang 'after 3 minutes'
