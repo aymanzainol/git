@@ -6,6 +6,7 @@ Automates the help-desk build of a new company PC:
 2. **Microsoft Store and app updates**: starts a Store update scan, then runs `winget upgrade --all`.
 3. **Company programs**, in this order: Google Chrome, Foxit PDF Reader, WinRAR, Microsoft 365 Apps, Keyloop Drive, CrowdStrike Falcon Sensor.
 4. **Domain join**, renaming the PC at the same time if you gave it a new name.
+5. **First sign-in as the user**: after the final restart, the PC signs in once as the domain user it's for, then opens classic Outlook and OneDrive with their account.
 
 You answer a few questions at the start: the PC name, the domain, and an account that can join PCs to the domain. After that it runs on its own.
 
@@ -32,6 +33,23 @@ The installer files are ignored by git, so they stay on the USB stick and never 
 5. At the end you get a summary of what was installed or skipped, and a prompt to restart. The restart completes the domain join.
 
 The script copies itself to `C:\ProgramData\PCSetup\kit` before it starts, so you can remove the USB stick after step 3.
+
+## The first sign-in (Outlook and OneDrive)
+
+At the start, after the domain account, the script asks for the **domain user who will use this PC** and their password. It checks the password against the domain straight away. Press Enter to skip this.
+
+After the domain join and the final restart:
+
+- **The PC signs in as that user once, by itself.** The password is kept in Windows' protected LSA store (the same method as Sysinternals Autologon), not in plain text. As soon as that sign-in happens, automatic sign-in is switched off and the password is deleted. The copy of the installers (including the 4 GB of Office files) is deleted at the same time.
+- **OneDrive starts and signs in with the Windows account.** If `OneDriveTenantId` is set in `config.psd1`, Desktop, Documents and Pictures also move into OneDrive.
+- **Classic Outlook opens and creates the mailbox profile** from the signed-in account. The "Try the new Outlook" switch is hidden, automatic migration to new Outlook is turned off, and the "new Outlook" app is removed (`RemoveNewOutlookApp`).
+- Outlook and OneDrive also open once for anyone else who signs in later, if no user was given.
+
+**No password prompts in Outlook and OneDrive** needs your domain to be linked to Microsoft 365 (Entra Connect with hybrid join). The script can't set that up, because it's configured on your servers. Without it, Outlook and OneDrive open with the right account and ask for the password once. The new PC can also take up to about 30 minutes to finish hybrid-joining after its first start.
+
+Automatic sign-in doesn't work if a Group Policy shows a logon message ("legal notice") before sign-in. In that case, the user signs in themselves, and Outlook and OneDrive still open.
+
+Logs: `%LOCALAPPDATA%\PCSetup-FirstLogon.log` in the user's profile.
 
 ## Things to know
 

@@ -91,3 +91,85 @@ jobs:
           $state.Results | Format-Table -AutoSize | Out-String -Width 200
           if ($state.Results | Where-Object { $_.Result -like 'FAILED*' }) { exit 1 }
           if ($script:WuAsyncWarned) { Write-Host '::warning::Live progress fell back to synchronous mode' }
+
+  first-sign-in:
+    name: First sign-in pieces (auto sign-in, policies, tasks)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exercise the first sign-in functions
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
+          foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
+            if ($a.Left.Extent.Text -in '$LsaSource', '$WinlogonKey') { . ([scriptblock]::Create($a.Extent.Text)) }
+          }
+          foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
+          $KitDir = "$PWD\PC-Setup"; $WorkDir = "$env:RUNNER_TEMP\pcsetup"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
+          $LogFile = "$WorkDir\setup.log"; $StateFile = "$WorkDir\state.xml"
+          $FirstLogonDir = "$env:ProgramData\PCSetup-FirstLogon"; $FirstLogonTaskName = 'PCSetup-FirstLogon'; $CleanupTaskName = 'PCSetup-FirstLogonCleanup'
+          $fail = @()
+          function Check($name, $ok) { "{0,-45} {1}" -f $name, $(if ($ok) { 'OK' } else { 'FAIL' }); if (-not $ok) { $script:fail += $name } }
+
+          # Automatic sign-in: LSA secret + Winlogon values, then cleanup
+          $cred = New-Object PSCredential('ahmed.ali', (ConvertTo-SecureString 'Not-a-real-p4ss' -AsPlainText -Force))
+          $account = Set-AutoLogon $cred 'example.local'
+          $wl = Get-ItemProperty $WinlogonKey
+          Check 'auto sign-in account'          ($account -eq 'example.local\ahmed.ali')
+          Check 'AutoAdminLogon = 1'            ($wl.AutoAdminLogon -eq '1')
+          Check 'AutoLogonCount = 1'            ($wl.AutoLogonCount -eq 1)
+          Check 'no plain-text DefaultPassword' ($null -eq $wl.DefaultPassword)
+          Check 'password stored as LSA secret' ([PCSetup.Lsa]::Exists('DefaultPassword'))
+          Clear-AutoLogon
+          $wl = Get-ItemProperty $WinlogonKey
+          Check 'LSA secret removed'            (-not [PCSetup.Lsa]::Exists('DefaultPassword'))
+          Check 'AutoAdminLogon = 0'            ($wl.AutoAdminLogon -eq '0')
+          Clear-AutoLogon   # twice is fine
+
+          # UPN form
+          $cred = New-Object PSCredential('ahmed.ali@example.com', (ConvertTo-SecureString 'x' -AsPlainText -Force))
+          Check 'UPN account kept as is'        ((Set-AutoLogon $cred 'example.local') -eq 'ahmed.ali@example.com')
+          Clear-AutoLogon
+
+          # Unreachable domain -> $null, not $false
+          Check 'unreachable domain gives null' ($null -eq (Test-DomainCredential 'example.invalid' $cred))
+
+          # Policies and default profile
+          Set-MachinePolicies @{ RemoveNewOutlookApp = $true; OneDriveTenantId = '00000000-0000-0000-0000-000000000000' }
+          $od = Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\OneDrive'
+          Check 'OneDrive SilentAccountConfig'  ($od.SilentAccountConfig -eq 1)
+          Check 'OneDrive KFMSilentOptIn'       ($od.KFMSilentOptIn -eq '00000000-0000-0000-0000-000000000000')
+          Set-DefaultUserSettings
+          reg.exe load 'HKU\T' "$env:SystemDrive\Users\Default\NTUSER.DAT" | Out-Null
+          Check 'default profile ZeroConfigExchange' ((Get-ItemProperty 'Registry::HKEY_USERS\T\Software\Microsoft\Office\16.0\Outlook\AutoDiscover').ZeroConfigExchange -eq 1)
+          Check 'default profile HideNewOutlookToggle' ((Get-ItemProperty 'Registry::HKEY_USERS\T\Software\Microsoft\Office\16.0\Outlook\Options\General').HideNewOutlookToggle -eq 1)
+          [GC]::Collect(); reg.exe unload 'HKU\T' | Out-Null
+
+          # Scheduled tasks
+          Register-FirstLogonTasks @{ UserName = 'ahmed.ali' }
+          $t1 = Get-ScheduledTask -TaskName $FirstLogonTaskName; $t2 = Get-ScheduledTask -TaskName $CleanupTaskName
+          Check 'user task runs as Users group'  ($t1.Principal.GroupId -match 'Users|S-1-5-32-545')
+          Check 'user task limited rights'       ($t1.Principal.RunLevel -eq 'Limited')
+          Check 'user task passes -OnlyUser'     ($t1.Actions[0].Arguments -like '*-OnlyUser "ahmed.ali"*')
+          Check 'cleanup task runs as SYSTEM'    ($t2.Principal.UserId -match 'SYSTEM|S-1-5-18')
+          Check 'FirstLogon.ps1 copied'          (Test-Path "$FirstLogonDir\FirstLogon.ps1")
+
+          # FirstLogon.ps1: other user -> does nothing; matching user -> runs once
+          powershell -NoProfile -File "$FirstLogonDir\FirstLogon.ps1" -OnlyUser 'someone.else'
+          Check 'skips other users'              (-not (Get-ItemProperty 'HKCU:\Software\PCSetup' -EA SilentlyContinue).FirstLogonDone)
+          powershell -NoProfile -File "$FirstLogonDir\FirstLogon.ps1" -OnlyUser $env:USERNAME
+          Check 'runs for the target user'       ((Get-ItemProperty 'HKCU:\Software\PCSetup').FirstLogonDone -eq 1)
+          Get-Content "$env:LOCALAPPDATA\PCSetup-FirstLogon.log"
+
+          # Cleanup as it runs at first sign-in
+          $cred = New-Object PSCredential('ahmed.ali', (ConvertTo-SecureString 'x' -AsPlainText -Force)); Set-AutoLogon $cred 'example.local' | Out-Null
+          $KitDir = "$env:RUNNER_TEMP\kitcopy"; New-Item -ItemType Directory "$KitDir\installers\Office" -Force | Out-Null
+          Invoke-FirstLogonCleanup
+          Check 'cleanup removed LSA secret'     (-not [PCSetup.Lsa]::Exists('DefaultPassword'))
+          Check 'cleanup removed its task'       (-not (Get-ScheduledTask -TaskName $CleanupTaskName -EA SilentlyContinue))
+          Check 'cleanup removed installers'     (-not (Test-Path "$KitDir\installers"))
+
+          if ($fail) { throw "Failed: $($fail -join ', ')" }

@@ -23,6 +23,9 @@
 .PARAMETER SkipDomainJoin
     Do everything except the domain join.
 
+.PARAMETER FirstLogonCleanup
+    Used by a SYSTEM task at the first sign-in after setup. You don't need to pass it.
+
 .PARAMETER Unattended
     No questions and no restart prompt at the end (keeps the current PC name).
     For testing in Windows Sandbox or CI. Exit code 2 = something failed.
@@ -32,7 +35,8 @@ param(
     [switch]$Resume,
     [switch]$SkipWindowsUpdate,
     [switch]$SkipDomainJoin,
-    [switch]$Unattended
+    [switch]$Unattended,
+    [switch]$FirstLogonCleanup
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,9 +46,13 @@ $WorkDir   = Join-Path $env:ProgramData 'PCSetup'
 $KitDir    = Join-Path $WorkDir 'kit'
 $StateFile = Join-Path $WorkDir 'state.xml'
 $CredFile  = Join-Path $WorkDir 'domain-cred.xml'
+$UserCredFile = Join-Path $WorkDir 'user-cred.xml'
+$FirstLogonDir = Join-Path $env:ProgramData 'PCSetup-FirstLogon'
+$FirstLogonTaskName = 'PCSetup-FirstLogon'
+$CleanupTaskName = 'PCSetup-FirstLogonCleanup'
 $LogFile   = Join-Path $WorkDir 'setup.log'
 $TaskName  = 'PCSetup-Resume'
-$Stages    = @('WindowsUpdate', 'StoreUpdates', 'Apps', 'DomainJoin', 'Done')
+$Stages    = @('WindowsUpdate', 'StoreUpdates', 'Apps', 'DomainJoin', 'UserSetup', 'Done')
 
 # winget exit codes that still mean "fine"
 $WingetOk = @(
@@ -79,6 +87,7 @@ function New-State {
         Stage             = 'WindowsUpdate'
         UpdateRound       = 0
         ComputerName      = $null
+        UserName          = $null
         DomainName        = $null
         SkipWindowsUpdate = [bool]$SkipWindowsUpdate
         SkipDomainJoin    = [bool]($SkipDomainJoin -or $Unattended)
@@ -609,6 +618,248 @@ function Invoke-DomainJoinStage($State, $Config) {
 
 #endregion
 
+#region First sign-in (domain user, Outlook, OneDrive) ---------------------
+
+# Automatic sign-in keeps the password in an LSA secret (like Sysinternals Autologon),
+# not in plain text in the registry.
+$LsaSource = @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+namespace PCSetup {
+    public static class Lsa {
+        [StructLayout(LayoutKind.Sequential)]
+        struct LSA_UNICODE_STRING { public ushort Length; public ushort MaximumLength; public IntPtr Buffer; }
+        [StructLayout(LayoutKind.Sequential)]
+        struct LSA_OBJECT_ATTRIBUTES { public int Length; public IntPtr RootDirectory; public IntPtr ObjectName; public uint Attributes; public IntPtr SecurityDescriptor; public IntPtr SecurityQualityOfService; }
+
+        [DllImport("advapi32.dll")] static extern uint LsaOpenPolicy(IntPtr systemName, ref LSA_OBJECT_ATTRIBUTES attrs, uint access, out IntPtr handle);
+        [DllImport("advapi32.dll")] static extern uint LsaStorePrivateData(IntPtr handle, ref LSA_UNICODE_STRING key, IntPtr data);
+        [DllImport("advapi32.dll")] static extern uint LsaRetrievePrivateData(IntPtr handle, ref LSA_UNICODE_STRING key, out IntPtr data);
+        [DllImport("advapi32.dll")] static extern uint LsaClose(IntPtr handle);
+        [DllImport("advapi32.dll")] static extern uint LsaFreeMemory(IntPtr buffer);
+        [DllImport("advapi32.dll")] static extern int LsaNtStatusToWinError(uint status);
+
+        const uint POLICY_GET_PRIVATE_INFORMATION = 0x4;
+        const uint POLICY_CREATE_SECRET = 0x20;
+        const uint STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034;
+
+        static LSA_UNICODE_STRING Str(string s) {
+            var u = new LSA_UNICODE_STRING();
+            u.Buffer = Marshal.StringToHGlobalUni(s);
+            u.Length = (ushort)(s.Length * 2);
+            u.MaximumLength = (ushort)(s.Length * 2 + 2);
+            return u;
+        }
+
+        static IntPtr Open(uint access) {
+            var attrs = new LSA_OBJECT_ATTRIBUTES();
+            attrs.Length = Marshal.SizeOf(attrs);
+            IntPtr handle;
+            uint status = LsaOpenPolicy(IntPtr.Zero, ref attrs, access, out handle);
+            if (status != 0) throw new Win32Exception(LsaNtStatusToWinError(status));
+            return handle;
+        }
+
+        // value = null deletes the secret.
+        public static void Store(string key, string value) {
+            IntPtr handle = Open(POLICY_CREATE_SECRET);
+            LSA_UNICODE_STRING k = Str(key);
+            IntPtr valueBuffer = IntPtr.Zero, valuePtr = IntPtr.Zero;
+            try {
+                if (value != null) {
+                    LSA_UNICODE_STRING v = Str(value);
+                    valueBuffer = v.Buffer;
+                    valuePtr = Marshal.AllocHGlobal(Marshal.SizeOf(v));
+                    Marshal.StructureToPtr(v, valuePtr, false);
+                }
+                uint status = LsaStorePrivateData(handle, ref k, valuePtr);
+                if (status != 0 && !(value == null && status == STATUS_OBJECT_NAME_NOT_FOUND))
+                    throw new Win32Exception(LsaNtStatusToWinError(status));
+            } finally {
+                Marshal.FreeHGlobal(k.Buffer);
+                if (valueBuffer != IntPtr.Zero) Marshal.FreeHGlobal(valueBuffer);
+                if (valuePtr != IntPtr.Zero) Marshal.FreeHGlobal(valuePtr);
+                LsaClose(handle);
+            }
+        }
+
+        public static bool Exists(string key) {
+            IntPtr handle = Open(POLICY_GET_PRIVATE_INFORMATION);
+            LSA_UNICODE_STRING k = Str(key);
+            try {
+                IntPtr data;
+                uint status = LsaRetrievePrivateData(handle, ref k, out data);
+                if (status != 0) return false;
+                if (data != IntPtr.Zero) LsaFreeMemory(data);
+                return true;
+            } finally {
+                Marshal.FreeHGlobal(k.Buffer);
+                LsaClose(handle);
+            }
+        }
+    }
+}
+'@
+
+$WinlogonKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+
+function Import-LsaType {
+    if (-not ('PCSetup.Lsa' -as [type])) { Add-Type -TypeDefinition $LsaSource -Language CSharp }
+}
+
+function Test-DomainCredential([string]$Domain, [pscredential]$Credential) {
+    # $true / $false, or $null when the domain can't be reached to check.
+    try {
+        Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+        $ctx = New-Object System.DirectoryServices.AccountManagement.PrincipalContext(
+            [System.DirectoryServices.AccountManagement.ContextType]::Domain, $Domain)
+        $user = $Credential.UserName -replace '^.*\\', ''
+        return $ctx.ValidateCredentials($user, $Credential.GetNetworkCredential().Password)
+    } catch {
+        return $null
+    }
+}
+
+function Get-NetbiosDomain([string]$Domain, [pscredential]$Credential) {
+    try {
+        $user = $Credential.UserName; $pw = $Credential.GetNetworkCredential().Password
+        $rootDse = New-Object DirectoryServices.DirectoryEntry("LDAP://$Domain/RootDSE", $user, $pw)
+        $configNc = $rootDse.Properties['configurationNamingContext'][0]
+        $partitions = New-Object DirectoryServices.DirectoryEntry("LDAP://$Domain/CN=Partitions,$configNc", $user, $pw)
+        $searcher = New-Object DirectoryServices.DirectorySearcher($partitions, "(&(objectClass=crossRef)(dnsRoot=$Domain)(nETBIOSName=*))")
+        $name = $searcher.FindOne().Properties['netbiosname'][0]
+        if ($name) { return [string]$name }
+    } catch { }
+    return $Domain
+}
+
+function Set-AutoLogon([pscredential]$Credential, [string]$Domain) {
+    # Signs in once as this user on the next start; Winlogon turns it off after that one sign-in.
+    Import-LsaType
+    $user = $Credential.UserName
+    if ($user -match '^(.+)\\(.+)$') { $dom = $Matches[1]; $user = $Matches[2] }
+    elseif ($user -like '*@*') { $dom = '' }
+    else { $dom = Get-NetbiosDomain $Domain $Credential }
+
+    [PCSetup.Lsa]::Store('DefaultPassword', $Credential.GetNetworkCredential().Password)
+    Remove-ItemProperty -Path $WinlogonKey -Name DefaultPassword -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $WinlogonKey -Name AutoAdminLogon -Value '1'
+    Set-ItemProperty -Path $WinlogonKey -Name DefaultUserName -Value $user
+    Set-ItemProperty -Path $WinlogonKey -Name DefaultDomainName -Value $dom
+    New-ItemProperty -Path $WinlogonKey -Name AutoLogonCount -Value 1 -PropertyType DWord -Force | Out-Null
+    $(if ($dom) { "$dom\$user" } else { $user })
+}
+
+function Clear-AutoLogon {
+    Import-LsaType
+    [PCSetup.Lsa]::Store('DefaultPassword', $null)
+    Set-ItemProperty -Path $WinlogonKey -Name AutoAdminLogon -Value '0'
+    Remove-ItemProperty -Path $WinlogonKey -Name DefaultPassword, AutoLogonCount -ErrorAction SilentlyContinue
+}
+
+function Set-RegDword([string]$Key, [string]$Name, [int]$Value) {
+    reg.exe add $Key /v $Name /t REG_DWORD /d $Value /f | Out-Null
+    if ($LASTEXITCODE) { throw "Couldn't write $Key\$Name" }
+}
+
+function Set-DefaultUserSettings {
+    # Written into the default profile, so every new user profile starts with them.
+    $hive = Join-Path $env:SystemDrive 'Users\Default\NTUSER.DAT'
+    reg.exe load 'HKU\PCSetupDefault' $hive | Out-Null
+    if ($LASTEXITCODE) { throw "Couldn't load the default user profile ($hive)" }
+    try {
+        $root = 'HKU\PCSetupDefault\Software'
+        Set-RegDword "$root\Microsoft\Office\16.0\Outlook\AutoDiscover" 'ZeroConfigExchange' 1         # create the mail profile from the signed-in account
+        Set-RegDword "$root\Microsoft\Office\16.0\Outlook\Options\General" 'HideNewOutlookToggle' 1    # no "Try the new Outlook" switch
+        Set-RegDword "$root\Policies\Microsoft\Office\16.0\Outlook\Preferences" 'DoNewOutlookAutoMigration' 0
+    } finally {
+        [GC]::Collect()
+        reg.exe unload 'HKU\PCSetupDefault' | Out-Null
+    }
+}
+
+function Set-MachinePolicies($Config) {
+    $od = 'HKLM\SOFTWARE\Policies\Microsoft\OneDrive'
+    Set-RegDword $od 'SilentAccountConfig' 1      # sign in to OneDrive with the Windows account
+    Set-RegDword $od 'FilesOnDemandEnabled' 1
+    if ($Config.OneDriveTenantId -and -not (Test-NotConfigured $Config.OneDriveTenantId)) {
+        reg.exe add $od /v KFMSilentOptIn /t REG_SZ /d $Config.OneDriveTenantId /f | Out-Null   # Desktop/Documents/Pictures into OneDrive
+    }
+    if ($Config.RemoveNewOutlookApp) {
+        try {
+            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq 'Microsoft.OutlookForWindows' } |
+                ForEach-Object { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName | Out-Null }
+            Get-AppxPackage -AllUsers -Name 'Microsoft.OutlookForWindows' | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+            Write-Log 'Removed the "new Outlook" app.'
+        } catch {
+            Write-Log "Couldn't remove the new Outlook app: $($_.Exception.Message)" 'Warn'
+        }
+    }
+}
+
+function Register-FirstLogonTasks($State) {
+    New-Item -ItemType Directory -Path $FirstLogonDir -Force | Out-Null
+    Copy-Item (Join-Path $KitDir 'FirstLogon.ps1') $FirstLogonDir -Force
+    $script = Join-Path $FirstLogonDir 'FirstLogon.ps1'
+    $userArg = if ($State.UserName) { " -OnlyUser `"$($State.UserName)`"" } else { '' }
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+
+    # Runs as whoever signs in (non-admin): opens OneDrive and classic Outlook once per user.
+    $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`"$userArg"
+    $principal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Limited
+    Register-ScheduledTask -TaskName $FirstLogonTaskName -Action $action -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
+
+    # Runs as SYSTEM at the first sign-in: removes the saved password and the Office files copy.
+    $setup     = Join-Path $KitDir 'Setup-NewPC.ps1'
+    $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$setup`" -FirstLogonCleanup"
+    $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
+    Register-ScheduledTask -TaskName $CleanupTaskName -Action $action -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
+}
+
+function Invoke-UserSetupStage($State, $Config) {
+    if ($State.SkipDomainJoin) { return }
+    $joined = $State.Results | Where-Object { $_.Item -eq 'Domain join' -and $_.Result -notlike 'FAILED*' -and $_.Result -ne 'Skipped' }
+    if (-not $joined) {
+        Remove-Item $UserCredFile -Force -ErrorAction SilentlyContinue
+        Add-Result $State 'First sign-in' 'Skipped - the PC is not on the domain'
+        return
+    }
+
+    Write-Log 'Preparing the first sign-in (classic Outlook, OneDrive)' 'Step'
+    try {
+        Set-MachinePolicies $Config
+        Set-DefaultUserSettings
+        Register-FirstLogonTasks $State
+        Add-Result $State 'Outlook / OneDrive' 'Open and sign in at the first sign-in'
+    } catch {
+        Write-Log "Outlook / OneDrive setup failed: $($_.Exception.Message)" 'Error'
+        Add-Result $State 'Outlook / OneDrive' "FAILED - $($_.Exception.Message)"
+    }
+
+    if (Test-Path $UserCredFile) {
+        try {
+            $account = Set-AutoLogon (Import-Clixml $UserCredFile) $State.DomainName
+            Write-Log "After the restart the PC signs in as $account (once)." 'Ok'
+            Add-Result $State 'First sign-in' "Signs in automatically as $account after the restart"
+        } catch {
+            Write-Log "Couldn't set up automatic sign-in: $($_.Exception.Message)" 'Error'
+            Add-Result $State 'First sign-in' "FAILED - $($_.Exception.Message)"
+        } finally {
+            Remove-Item $UserCredFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Invoke-FirstLogonCleanup {
+    Clear-AutoLogon
+    Unregister-ScheduledTask -TaskName $CleanupTaskName -Confirm:$false -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $KitDir 'installers') -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log 'First sign-in done: automatic sign-in is off, the saved password and the installer copies are removed.' 'Ok'
+}
+
+#endregion
+
 #region Main --------------------------------------------------------------
 
 if (-not (Test-IsAdmin)) {
@@ -617,6 +868,12 @@ if (-not (Test-IsAdmin)) {
 }
 
 New-Item -ItemType Directory -Path $WorkDir -Force | Out-Null
+# Only admins and SYSTEM may read the work folder (it briefly holds encrypted passwords).
+icacls.exe $WorkDir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
+if ($FirstLogonCleanup) {
+    try { Invoke-FirstLogonCleanup } catch { Write-Log "First sign-in cleanup failed: $($_.Exception.Message)" 'Error'; exit 1 }
+    exit 0
+}
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 try { Start-Transcript -Path (Join-Path $WorkDir 'transcript.log') -Append | Out-Null } catch { }
 try { $Host.UI.RawUI.WindowTitle = 'New PC setup - do not close' } catch { }
@@ -663,9 +920,33 @@ try {
                     $state.DomainName = (Read-Host 'Domain to join (e.g. corp.company.com, Enter = skip domain join)').Trim()
                 }
                 if ($state.DomainName) {
-                    $cred = Get-Credential -Message "Account allowed to join PCs to $($state.DomainName) (DOMAIN\user)"
+                    for ($try = 1; $try -le 3; $try++) {
+                        $cred = Get-Credential -Message "Account allowed to join PCs to $($state.DomainName) (DOMAIN\user)"
+                        if (-not $cred) { break }
+                        $ok = Test-DomainCredential $state.DomainName $cred
+                        if ($ok -eq $false) { Write-Log 'That user name or password is wrong - try again.' 'Warn'; $cred = $null; continue }
+                        if ($null -eq $ok) { Write-Log "Couldn't reach $($state.DomainName) to check the password - using it as typed." 'Warn' }
+                        break
+                    }
                     # Encrypted with DPAPI - only this user on this PC can read it. Deleted after the join.
                     if ($cred) { $cred | Export-Clixml -Path $CredFile -Force }
+
+                    if ($config.AskForUser -and -not $Unattended) {
+                        $userCred = $null
+                        $user = (Read-Host 'Domain user who will use this PC - it signs in as them once after setup (e.g. ahmed.ali, Enter = skip)').Trim()
+                        for ($try = 1; $user -and $try -le 3; $try++) {
+                            $pw = Read-Host "Password for $user" -AsSecureString
+                            $userCred = New-Object System.Management.Automation.PSCredential($user, $pw)
+                            $ok = Test-DomainCredential $state.DomainName $userCred
+                            if ($ok -eq $false) { Write-Log 'That password is wrong - try again.' 'Warn'; $userCred = $null; continue }
+                            if ($null -eq $ok) { Write-Log "Couldn't reach $($state.DomainName) to check the password - using it as typed." 'Warn' }
+                            break
+                        }
+                        if ($userCred) {
+                            $userCred | Export-Clixml -Path $UserCredFile -Force
+                            $state.UserName = $user
+                        }
+                    }
                 } else {
                     $state.SkipDomainJoin = $true
                 }
@@ -698,12 +979,13 @@ try {
             'StoreUpdates'  { Invoke-StoreUpdateStage   $state $config }
             'Apps'          { Invoke-AppsStage          $state $config }
             'DomainJoin'    { Invoke-DomainJoinStage    $state $config }
+            'UserSetup'     { Invoke-UserSetupStage     $state $config }
         }
         Set-NextStage $state
     }
 
     Unregister-ResumeTask
-    Remove-Item $CredFile -Force -ErrorAction SilentlyContinue
+    Remove-Item $CredFile, $UserCredFile -Force -ErrorAction SilentlyContinue
 
     Write-Host ''
     Write-Log 'Setup finished - summary' 'Step'
@@ -716,6 +998,9 @@ try {
     if ($Unattended) {
         if ($state.Results | Where-Object { $_.Result -like 'FAILED*' }) { exit 2 }
         exit 0
+    }
+    if ($state.UserName -and ($state.Results | Where-Object { $_.Item -eq 'First sign-in' -and $_.Result -like 'Signs in*' })) {
+        Write-Log "After the restart the PC signs in as $($state.UserName) and opens classic Outlook and OneDrive." 'Ok'
     }
     $answer = Read-Host 'Restart now to finish (needed for the domain join)? [Y/n]'
     if ($answer -notmatch '^n') {

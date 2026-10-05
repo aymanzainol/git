@@ -10,6 +10,11 @@
     OUPath             = ''                  # e.g. 'OU=Workstations,DC=corp,DC=company,DC=com' (blank = default Computers container)
     AskForComputerName = $true               # ask for a new PC name at the start (renamed during the domain join)
 
+    # --- First sign-in (after the domain join) ----------------------------
+    AskForUser          = $true              # ask for the domain user + password; the PC signs in as them once after setup
+    OneDriveTenantId    = ''                 # Microsoft 365 tenant ID - also moves Desktop/Documents/Pictures into OneDrive (blank = off)
+    RemoveNewOutlookApp = $true              # remove the "new Outlook" app so users open classic Outlook
+
     # --- Windows Update --------------------------------------------------
     MaxUpdateRounds   = 6                    # stop after this many search/install rounds (each may reboot)
     ExcludeCategories = @('Upgrades')        # skip feature upgrades (e.g. a surprise jump to a new Windows version)
