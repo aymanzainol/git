@@ -639,57 +639,86 @@ function Stop-InstallerTree([Diagnostics.Process]$Process) {
 
 $ClickButtons = '^(Next|I Agree|I Accept|Accept|Install|Finish|Close|OK)\b'
 
-function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [string[]]$Check) {
-    # Presses Next / Install / Finish in the installer's own windows (keeping every default) until it exits.
-    # Only windows that belong to the installer process or its children are touched; never Cancel or Back.
+# Runs in a background runspace so a hung UI Automation call can never freeze setup.
+$ClickWatcher = {
+    param($ProcessId, $ButtonPattern, $Check, $Sync)
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    function Get-Tree([int]$RootId) {
+        $all = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
+        $ids = @($RootId)
+        for ($i = 0; $i -lt $ids.Count; $i++) { $ids += @($all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -notin $ids } | ForEach-Object { [int]$_.ProcessId }) }
+        $ids
+    }
     $A = [Windows.Automation.AutomationElement]
     $buttonCond = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
     $checkCond  = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::CheckBox)
-    $lastClick = Get-Date
-    $started = Get-Date
-    $sawWindow = $false
-    $warned = $false
-    while (-not $Process.HasExited) {
+    while (-not $Sync.Stop) {
         Start-Sleep -Milliseconds 1500
         try {
-            $ids = Get-ProcessTree $Process.Id
-            $windows = $A::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) |
-                Where-Object { $_.Current.ProcessId -in $ids }
-            if ($windows) { $sawWindow = $true } else { $lastClick = Get-Date }   # working silently or between steps - not stuck
-            if (-not $sawWindow -and -not $warned -and ((Get-Date) - $started).TotalMinutes -gt 2) {
-                Write-Log "  $AppName installer: still waiting for its window (if it's showing, it may need a click)" 'Warn'
-                $warned = $true
-            }
+            $ids = Get-Tree $ProcessId
+            $windows = @($A::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) |
+                Where-Object { $_.Current.ProcessId -in $ids })
+            $Sync.Polls++
+            if ($windows) { $Sync.SawWindow = $true }
             foreach ($w in $windows) {
                 foreach ($cb in $w.FindAll([Windows.Automation.TreeScope]::Descendants, $checkCond)) {
                     if ($Check -and ($Check | Where-Object { $cb.Current.Name -like $_ })) {
                         $toggle = $cb.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
-                        if ($toggle.Current.ToggleState -eq 'Off') { $toggle.Toggle(); Write-Log "  ticked '$($cb.Current.Name)'" }
+                        if ($toggle.Current.ToggleState -eq 'Off') { $toggle.Toggle(); $Sync.Messages.Enqueue("ticked '$($cb.Current.Name)'") }
                     }
                 }
                 $button = $w.FindAll([Windows.Automation.TreeScope]::Descendants, $buttonCond) |
-                    Where-Object { $_.Current.IsEnabled -and ($_.Current.Name -replace '&', '') -match $ClickButtons -and
+                    Where-Object { $_.Current.IsEnabled -and ($_.Current.Name -replace '&', '') -match $ButtonPattern -and
                                    $_.Current.AutomationId -notin 'Close', 'Minimize', 'Maximize', 'Restore' } |   # title-bar buttons
                     Select-Object -First 1
                 if ($button) {
                     $name = $button.Current.Name -replace '&', ''
                     $button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
-                    Write-Log "  $AppName installer: clicked '$name'"
-                    $lastClick = Get-Date
+                    $Sync.Messages.Enqueue("clicked '$name'")
+                    $Sync.LastClick = Get-Date
                     Start-Sleep -Seconds 2
                     break
                 }
             }
         } catch { }   # windows come and go while the wizard moves on
-        if (((Get-Date) - $lastClick).TotalMinutes -gt 30) {
-            Stop-InstallerTree $Process
-            throw "the installer waited 30 minutes on a step that couldn't be clicked automatically"
+    }
+}
+
+function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [string[]]$Check, [int]$TimeoutMinutes = 45) {
+    # Presses Next / Install / Finish in the installer's own windows (keeping every default) until it exits.
+    # Only windows of the installer process or its children are touched; never Cancel, Back or the title-bar X.
+    $sync = [hashtable]::Synchronized(@{ Stop = $false; SawWindow = $false; Polls = 0; LastClick = Get-Date
+                                         Messages = New-Object System.Collections.Concurrent.ConcurrentQueue[string] })
+    $ps = [PowerShell]::Create()
+    [void]$ps.AddScript($ClickWatcher).AddArgument($Process.Id).AddArgument($ClickButtons).AddArgument($Check).AddArgument($sync)
+    $handle = $ps.BeginInvoke()
+    $started = Get-Date
+    $warned = $false
+    try {
+        while (-not $Process.HasExited) {
+            Start-Sleep -Seconds 1
+            $msg = $null
+            while ($sync.Messages.TryDequeue([ref]$msg)) { Write-Log "  $AppName installer: $msg" }
+            $elapsed = ((Get-Date) - $started).TotalMinutes
+            if (-not $warned -and -not $sync.SawWindow -and $elapsed -gt 2) {
+                Write-Log "  $AppName installer: can't see its window to click it$(if (-not $sync.Polls) { ' (window search not answering)' }). If it's on screen, click through it yourself - setup carries on when it closes." 'Warn'
+                $warned = $true
+            }
+            if ($sync.SawWindow -and ((Get-Date) - $sync.LastClick).TotalMinutes -gt 30) {
+                Stop-InstallerTree $Process
+                throw 'the installer waited 30 minutes on a step that couldn''t be clicked automatically'
+            }
+            if ($elapsed -gt $TimeoutMinutes) {
+                Stop-InstallerTree $Process
+                throw "the installer was still running after $TimeoutMinutes minutes - stopped it"
+            }
         }
-        if (((Get-Date) - $started).TotalMinutes -gt 45) {
-            Stop-InstallerTree $Process
-            throw 'the installer was still running after 45 minutes - stopped it'
-        }
+    } finally {
+        $sync.Stop = $true
+        $msg = $null
+        while ($sync.Messages.TryDequeue([ref]$msg)) { Write-Log "  $AppName installer: $msg" }
+        # Don't wait on a watcher that may be stuck inside UI Automation.
+        if ($handle.AsyncWaitHandle.WaitOne(5000)) { $ps.Dispose() } else { [void]$ps.BeginStop($null, $null) }
     }
 }
 
@@ -749,7 +778,8 @@ function Install-FileApp($App) {
     if ($App.NoWait) { return 'Installed' }   # finished when Detect finds it
     if ($clickThrough) {
         $null = $p.Handle   # keeps the exit code readable after the process ends
-        Invoke-ClickThrough $p $App.Name @($App.Check)
+        $timeout = if ($App.TimeoutMinutes) { [int]$App.TimeoutMinutes } else { 45 }
+        Invoke-ClickThrough $p $App.Name @($App.Check) $timeout
         $p.WaitForExit()
     }
     if ($p.ExitCode -in $InstallerOk) { return 'Installed' }

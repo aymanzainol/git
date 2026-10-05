@@ -202,7 +202,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
           foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
-            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk', '$ClickButtons') { . ([scriptblock]::Create($a.Extent.Text)) }
+            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk', '$ClickButtons', '$ClickWatcher') { . ([scriptblock]::Create($a.Extent.Text)) }
           }
           foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
           $WorkDir = "$env:RUNNER_TEMP\pcsetup"; $LogFile = "$WorkDir\setup.log"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
@@ -225,25 +225,35 @@ jobs:
             Check "$id detected as $($samples[$id]) (got: $kind)" ($kind -eq $samples[$id])
           }
 
-          # Clicking through needs a desktop; hosted runners may not have one.
-          $desktop = (Get-Process -Id $PID).SessionId -ne 0
-          "Interactive desktop: $desktop"
-          if (-not $desktop) { Write-Host '::warning::No interactive desktop on this runner - click-through cases skipped' }
+          # Clicking through needs a desktop where UI Automation answers; check with Notepad (60 s limit).
+          $desktop = $false
+          if ((Get-Process -Id $PID).SessionId -ne 0) {
+            $np = Start-Process notepad.exe -PassThru
+            $probe = Start-Job { param($id) Add-Type -AssemblyName UIAutomationClient; Start-Sleep 3
+              @([Windows.Automation.AutomationElement]::RootElement.FindAll('Children', [Windows.Automation.Condition]::TrueCondition) | Where-Object { $_.Current.ProcessId -eq $id }).Count } -ArgumentList $np.Id
+            if (Wait-Job $probe -Timeout 60) { $desktop = (Receive-Job $probe) -gt 0 } else { Stop-Job $probe }
+            Stop-Process -Id $np.Id -Force -ErrorAction SilentlyContinue
+          }
+          "UI Automation can see windows: $desktop"
+          if (-not $desktop) { Write-Host '::warning::UI Automation cannot see windows on this runner - click-through cases run with a short limit and only warn' }
 
           # End to end with AUTO: these would sit on a wizard (and time out) if not silent
           $cases = @(
               # Wizard clicked through (language, Next, I Agree, Next, Install, Finish) - like Keyloop KCML KClient
-              @{ Name = 'Notepad++ (click-through)'; Installer = 'installers\NotepadNotepad\*'; Arguments = 'CLICKTHROUGH'; Detect = @{ Path = '%ProgramFiles%\Notepad++\notepad++.exe' } }
+              @{ Name = 'Notepad++ (click-through)'; Installer = 'installers\NotepadNotepad\*'; Arguments = 'CLICKTHROUGH'; TimeoutMinutes = 4; Detect = @{ Path = '%ProgramFiles%\Notepad++\notepad++.exe' } }
               @{ Name = 'Inno Setup'; Installer = 'installers\JRSoftwareInnoSetup\*'; Arguments = 'AUTO'; Detect = @{ DisplayName = 'Inno Setup*' } }
               # Unknown installer type -> AUTO falls back to clicking through
-              @{ Name = '7-Zip (unknown type)'; Installer = 'installers\7zip\*'; Arguments = 'AUTO'; Detect = @{ Path = '%ProgramFiles%\7-Zip\7z.exe' } })
-          if (-not $desktop) { $cases = @($cases | Where-Object { $_.Name -notmatch 'click-through|unknown type' }) }
+              @{ Name = '7-Zip (unknown type)'; Installer = 'installers\7zip\*'; Arguments = 'AUTO'; TimeoutMinutes = 4; Detect = @{ Path = '%ProgramFiles%\7-Zip\7z.exe' } })
           foreach ($t in $cases) {
             Check "$($t.Name): nothing to skip" ($null -eq (Get-SkipReason $t))
-            # A wizard would block here until the job's 20-minute limit fails the run.
-            $result = Install-FileApp $t
-            Check "$($t.Name): installer finished ($result)" ($result -eq 'Installed')
-            Check "$($t.Name): installed silently (no wizard)" (Wait-AppInstalled ($t + @{ WaitMinutes = 2 }))
+            $clicky = $t.Name -match 'click-through|unknown type'
+            try { $result = Install-FileApp $t } catch { $result = "FAILED - $($_.Exception.Message)" }
+            $ok = ($result -eq 'Installed') -and (Wait-AppInstalled ($t + @{ WaitMinutes = 2 }))
+            if ($clicky -and -not $desktop) {
+              "{0,-50} {1}" -f "$($t.Name): $result", $(if ($ok) { 'OK' } else { 'WARN (no usable desktop on runner)' })
+            } else {
+              Check "$($t.Name): installed ($result)" $ok
+            }
           }
 
           Get-Content $LogFile | Select-String 'clicked|installer|switches'
