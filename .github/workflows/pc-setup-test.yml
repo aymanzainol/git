@@ -178,3 +178,62 @@ jobs:
           Check 'cleanup removed installers'     (-not (Test-Path "$KitDir\installers"))
 
           if ($fail) { throw "Failed: $($fail -join ', ')" }
+
+  installer-detection:
+    name: Installer auto-detection and CrowdStrike CID file
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect installer types, install with AUTO, read the CID file
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
+          foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
+            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk') { . ([scriptblock]::Create($a.Extent.Text)) }
+          }
+          foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
+          $WorkDir = "$env:RUNNER_TEMP\pcsetup"; $LogFile = "$WorkDir\setup.log"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
+          $KitDir = "$env:RUNNER_TEMP\kit"
+          $fail = @()
+          function Check($name, $ok) { "{0,-50} {1}" -f $name, $(if ($ok) { 'OK' } else { 'FAIL' }); if (-not $ok) { $script:fail += $name } }
+
+          # Real installers of each type, laid out like the kit: installers\<App>\<any name>.exe
+          $samples = [ordered]@{ 'Notepad++.Notepad++' = 'NSIS'; 'JRSoftware.InnoSetup' = 'Inno Setup'; 'Microsoft.VCRedist.2015+.x64' = 'WiX' }
+          foreach ($id in $samples.Keys) {
+            $dir = "$KitDir\installers\$($id -replace '[^\w]', '')"
+            winget download --id $id --exact --download-directory $dir --accept-source-agreements --accept-package-agreements --disable-interactivity | Out-Null
+            Get-ChildItem $dir -Filter *.yaml | Remove-Item
+            "readme" | Set-Content "$dir\README.txt"
+            $exe = Resolve-KitPath "installers\$($id -replace '[^\w]', '')\*"
+            Check "picks the installer, not README ($id)" ($exe -like '*.exe')
+            $kind = Get-InstallerKind $exe
+            Check "$id detected as $($samples[$id]) (got: $kind)" ($kind -eq $samples[$id])
+          }
+
+          # End to end with AUTO: these would sit on a wizard (and time out) if not silent
+          foreach ($t in @(
+              @{ Name = 'Notepad++'; Installer = 'installers\NotepadNotepad\*'; Arguments = 'AUTO'; Detect = @{ Path = '%ProgramFiles%\Notepad++\notepad++.exe' } }
+              @{ Name = 'Inno Setup'; Installer = 'installers\JRSoftwareInnoSetup\*'; Arguments = 'AUTO'; Detect = @{ DisplayName = 'Inno Setup*' } })) {
+            Check "$($t.Name): nothing to skip" ($null -eq (Get-SkipReason $t))
+            # A wizard would block here until the job's 20-minute limit fails the run.
+            $result = Install-FileApp $t
+            Check "$($t.Name): installer finished ($result)" ($result -eq 'Installed')
+            Check "$($t.Name): installed silently (no wizard)" (Wait-AppInstalled ($t + @{ WaitMinutes = 2 }))
+          }
+
+          # CrowdStrike folder exactly like the help desk's
+          $cs = "$KitDir\installers\CrowdStrike"; New-Item -ItemType Directory $cs -Force | Out-Null
+          Copy-Item "$env:SystemRoot\System32\where.exe" "$cs\FalconSensor_Windows 04-27-2026.exe"
+          "CID: 0123456789abcdef0123456789ABCDEF-a1`r`n" | Set-Content "$cs\CID.txt"
+          $app = @{ Name = 'CrowdStrike Falcon Sensor'; Installer = 'installers\CrowdStrike\*'; Arguments = '/install /quiet /norestart CID={CID}'; CidFile = 'installers\CrowdStrike\CID*' }
+          Check 'finds the sensor exe (spaces + date in name)' ((Resolve-KitPath $app.Installer) -like '*FalconSensor_Windows 04-27-2026.exe')
+          Check 'reads the CID from CID.txt'               ((Get-CrowdStrikeCid $app) -eq '0123456789ABCDEF0123456789ABCDEF-A1')
+          Check 'CrowdStrike not skipped'                  ($null -eq (Get-SkipReason $app))
+          Remove-Item "$cs\CID.txt"
+          Check 'missing CID file is reported'             ((Get-SkipReason $app) -like 'no CID found*')
+          Check 'empty folder is reported'                 ((Get-SkipReason @{ Installer = 'installers\Nothing\*'; Arguments = 'AUTO' }) -like 'no installer found*')
+
+          if ($fail) { throw "Failed: $($fail -join ', ')" }

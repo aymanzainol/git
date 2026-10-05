@@ -511,12 +511,62 @@ function Install-WingetApp($App) {
 }
 
 function Resolve-KitPath([string]$Path) {
-    if ([IO.Path]::IsPathRooted($Path)) { $Path } else { Join-Path $KitDir $Path }
+    # Relative paths are inside the kit. Wildcards pick the newest matching .exe/.msi (or any
+    # file for non-installer patterns such as CID*), so a new file name needs no config change.
+    $full = if ([IO.Path]::IsPathRooted($Path)) { $Path } else { Join-Path $KitDir $Path }
+    if ($full -notmatch '[*?]') { return $full }
+    $files = @(Get-ChildItem -Path $full -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'README.txt' })
+    if ($Path -match '\\\*(\.\*)?$') { $files = @($files | Where-Object { $_.Extension -in '.exe', '.msi' }) }
+    $hit = $files | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($hit) { $hit.FullName }
+}
+
+function Get-CrowdStrikeCid($App) {
+    # Reads the CID (32 hex characters + "-" + 2-character checksum) from the CID text file.
+    $file = Resolve-KitPath $App.CidFile
+    if (-not $file -or -not (Test-Path $file)) { return $null }
+    $m = [regex]::Match((Get-Content -Path $file -Raw), '[0-9A-Fa-f]{32}-[0-9A-Fa-f]{2}')
+    if ($m.Success) { $m.Value.ToUpper() }
 }
 
 function Get-SkipReason($App) {
     if ((Test-NotConfigured $App.Installer) -or (Test-NotConfigured $App.Arguments)) { return 'not configured in config.psd1 (CHANGE-ME)' }
-    if ($App.Installer -and -not $App.DownloadUrl -and -not (Test-Path (Resolve-KitPath $App.Installer))) { return "installer not found: $(Resolve-KitPath $App.Installer)" }
+    if ($App.Installer -and -not $App.DownloadUrl) {
+        $path = Resolve-KitPath $App.Installer
+        if (-not $path -or -not (Test-Path $path)) { return "no installer found in $(Split-Path (Join-Path $KitDir $App.Installer))" }
+    }
+    if ("$($App.Arguments)" -match '\{CID\}' -and -not (Get-CrowdStrikeCid $App)) { return "no CID found in $($App.CidFile)" }
+}
+
+function Get-InstallerKind([string]$Path) {
+    # Recognises common installer builders from the file's version info and contents.
+    $info = (Get-Item -LiteralPath $Path).VersionInfo
+    $text = "$($info.Comments) $($info.FileDescription) $($info.ProductName) $($info.InternalName) $($info.LegalTrademarks)"
+    $fs = [IO.File]::OpenRead($Path)
+    try {
+        $reader = New-Object IO.BinaryReader($fs)
+        $buf = $reader.ReadBytes([int][Math]::Min($fs.Length, 16MB))
+    } finally { $fs.Dispose() }
+    $text += [Text.Encoding]::ASCII.GetString($buf)
+    $text += [Text.Encoding]::Unicode.GetString($buf)
+    if ($buf.Length -gt 1) { $text += [Text.Encoding]::Unicode.GetString($buf, 1, $buf.Length - 1) }
+
+    if ($text -match '\.wixburn')                      { return 'WiX' }
+    if ($text -match 'Inno Setup')                     { return 'Inno Setup' }
+    if ($text -match 'Nullsoft|NullsoftInst')          { return 'NSIS' }
+    if ($text -match 'InstallShield')                  { return 'InstallShield' }
+    if ($text -match 'Advanced Installer')             { return 'Advanced Installer' }
+    if ($text -match 'Squirrel')                       { return 'Squirrel' }
+    return $null
+}
+
+$SilentSwitches = @{
+    'WiX'                = '/quiet /norestart'
+    'Inno Setup'         = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
+    'NSIS'               = '/S'
+    'InstallShield'      = '/s /v"/qn REBOOT=ReallySuppress"'
+    'Advanced Installer' = '/exenoui /qn /norestart'
+    'Squirrel'           = '--silent'
 }
 
 function Install-FileApp($App) {
@@ -538,12 +588,27 @@ function Install-FileApp($App) {
         Write-Log "Signature OK: $($App.Signer)"
     }
 
+    $appArgs = "$($App.Arguments)".Trim()
+    if ($appArgs -eq 'AUTO') {
+        if ($path -like '*.msi') {
+            $appArgs = ''
+        } else {
+            $kind = Get-InstallerKind $path
+            if (-not $kind) {
+                throw "can't tell how to install $([IO.Path]::GetFileName($path)) silently - put its silent switches in Arguments in config.psd1"
+            }
+            $appArgs = $SilentSwitches[$kind]
+            Write-Log "$([IO.Path]::GetFileName($path)) is a $kind installer - using $appArgs"
+        }
+    }
+    if ($appArgs -match '\{CID\}') { $appArgs = $appArgs.Replace('{CID}', (Get-CrowdStrikeCid $App)) }
+
     if ($path -like '*.msi') {
         $file = 'msiexec.exe'
-        $arguments = "/i `"$path`" /qn /norestart $($App.Arguments)".Trim()
+        $arguments = "/i `"$path`" /qn /norestart $appArgs".Trim()
     } else {
         $file = $path
-        $arguments = "$($App.Arguments)".Trim()
+        $arguments = $appArgs
     }
     $arguments = $arguments.Replace('{KIT}', $KitDir)
     Write-Log "Running $([IO.Path]::GetFileName($path)) $($arguments -replace 'CID=\S+', 'CID=***')"
@@ -1009,9 +1074,8 @@ try {
             }
 
             foreach ($app in $config.Apps) {
-                if ((Test-NotConfigured $app.Installer) -or (Test-NotConfigured $app.Arguments)) {
-                    Write-Log "$($app.Name) is not configured in config.psd1 yet - it will be skipped." 'Warn'
-                }
+                $reason = Get-SkipReason $app
+                if ($reason) { Write-Log "$($app.Name) will be skipped: $reason" 'Warn' }
             }
 
             Save-State $state

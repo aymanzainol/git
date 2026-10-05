@@ -27,7 +27,8 @@
     # --- Programs, installed top to bottom -------------------------------
     #  WingetId  : installed from winget (internet)
     #  DownloadUrl : downloaded at install time (Signer = required code-signing company)
-    #  Installer : a file in this kit (relative path) or a full/UNC path
+    #  Installer : a file in this kit (relative path) or a full/UNC path; '...\*' = newest .exe/.msi in that folder
+    #  Arguments : silent switches; AUTO = work them out from the installer type
     #              .msi files get "/i <file> /qn /norestart" automatically
     #              {KIT} in Arguments = the folder this kit runs from
     #  Detect    : how to tell it's already installed, so re-runs skip it
@@ -51,12 +52,13 @@
             WaitMinutes = 60     # some Office installers return before Office is fully installed
         }
 
-        # Copy your Keyloop Drive installer into installers\Keyloop\ and set the
-        # file name + silent switches you normally use.
+        # Put the Keyloop Drive installer (.exe or .msi) in installers\Keyloop\ - any file name.
+        # AUTO works out the silent switches from the installer type; if it can't, put the
+        # switches here instead (e.g. '/S' or '/quiet').
         @{
             Name      = 'Keyloop Drive'
-            Installer = 'installers\Keyloop\CHANGE-ME.exe'
-            Arguments = ''
+            Installer = 'installers\Keyloop\*'
+            Arguments = 'AUTO'
             Detect    = @{ DisplayName = '*Keyloop*' }
         }
 
@@ -72,12 +74,14 @@
             AnyDeskPassword = 'CHANGE-ME'      # unattended-access password
         }
 
-        # Copy WindowsSensor.exe (Falcon console > Host setup > Sensor downloads)
-        # into installers\CrowdStrike\ and paste your CID (with checksum) below.
+        # Put the Falcon sensor installer in installers\CrowdStrike\ (any name, e.g.
+        # FalconSensor_Windows.exe) and a text file starting with CID that contains your CID
+        # with checksum (Falcon console > Host setup > Sensor downloads).
         @{
             Name      = 'CrowdStrike Falcon Sensor'
-            Installer = 'installers\CrowdStrike\WindowsSensor.exe'
-            Arguments = '/install /quiet /norestart CID=CHANGE-ME'
+            Installer = 'installers\CrowdStrike\*'
+            Arguments = '/install /quiet /norestart CID={CID}'
+            CidFile   = 'installers\CrowdStrike\CID*'
             Detect    = @{ Service = 'CSFalconService' }
         }
     )
