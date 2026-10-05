@@ -53,7 +53,7 @@ jobs:
             'AnyDesk service' = { [bool](Get-Service AnyDesk -EA SilentlyContinue) }
             'AnyDesk password + ID in summary' = { [bool](Select-String -Path C:\ProgramData\PCSetup\setup.log -Pattern 'AnyDesk: .*unattended password set, ID \d+' -Quiet) }
             'Time zone Riyadh' = { (Get-TimeZone).Id -eq 'Arab Standard Time' }
-            'Arabic (Saudi) keyboard' = { [bool](Get-WinUserLanguageList | Where-Object LanguageTag -eq 'ar-SA') }
+            'Arabic (Saudi) keyboard' = { (Get-WinUserLanguageList).LanguageTag -contains 'ar-SA' }
             'Arabic keyboard for new users' = { reg.exe load HKU\T "$env:SystemDrive\Users\Default\NTUSER.DAT" | Out-Null; $p = Get-ItemProperty 'Registry::HKEY_USERS\T\Keyboard Layout\Preload' -EA SilentlyContinue; $ok = [bool]($p.PSObject.Properties | Where-Object Value -eq '00000401'); [GC]::Collect(); reg.exe unload HKU\T | Out-Null; $ok }
             'Resume task removed' = { -not (Get-ScheduledTask -TaskName 'PCSetup-Resume' -EA SilentlyContinue) }
           }
@@ -363,7 +363,7 @@ jobs:
           $LogFile = "$WorkDir\setup.log"; $StateFile = "$WorkDir\state.xml"
           function Show-Lang($when) {
             "---- $when"
-            powershell -NoProfile -Command "Get-WinUserLanguageList | ForEach-Object { '{0} | {1} | {2}' -f `$_.LanguageTag, `$_.Autonym, (`$_.InputMethodTips -join ',') }"
+            powershell -NoProfile -Command "(Get-WinUserLanguageList) | ForEach-Object { `$_ } | ForEach-Object { '{0} | {1}' -f `$_.LanguageTag, (`$_.InputMethodTips -join ',') }"
             "User Profile: " + ((Get-ItemProperty 'HKCU:\Control Panel\International\User Profile' -EA SilentlyContinue).Languages -join ',')
             "Preload: " + ((Get-ItemProperty 'HKCU:\Keyboard Layout\Preload' -EA SilentlyContinue).PSObject.Properties | Where-Object Name -match '^\d+$' | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' '
           }
@@ -376,3 +376,7 @@ jobs:
           Get-ScheduledTask -TaskPath '\Microsoft\Windows\LanguageComponentsInstaller\' -EA SilentlyContinue | Format-Table TaskName, State -AutoSize | Out-String
           Start-Sleep -Seconds 180
           Show-Lang 'after 3 minutes'
+          $tags = powershell -NoProfile -Command "(Get-WinUserLanguageList).LanguageTag"
+          if ($tags -notcontains 'ar-SA' -or $tags -notcontains 'en-US') { throw "Language list in a new process: $($tags -join ', ')" }
+          if ((Get-TimeZone).Id -ne 'Arab Standard Time') { throw "Time zone: $((Get-TimeZone).Id)" }
+          'Arabic (Saudi Arabia) + English still set after 3 minutes; time zone Riyadh'
