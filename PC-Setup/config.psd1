@@ -8,6 +8,7 @@
     # --- Domain join -----------------------------------------------------
     DomainName         = 'CHANGE-ME.local'   # e.g. 'corp.company.com'
     OUPath             = ''                  # e.g. 'OU=Workstations,DC=corp,DC=company,DC=com' (blank = default Computers container)
+                                             # Use an OU that Entra Connect syncs - otherwise Microsoft 365 never registers the PC.
     AskForComputerName = $true               # ask for a new PC name at the start (renamed during the domain join)
 
     # --- Time zone and keyboards -----------------------------------------
@@ -18,6 +19,11 @@
     AskForUser          = $true              # ask for the domain user + password; the PC signs in as them once after setup
     OneDriveTenantId    = ''                 # Microsoft 365 tenant ID - also moves Desktop/Documents/Pictures into OneDrive (blank = off)
     RemoveNewOutlookApp = $true              # remove the "new Outlook" app so users open classic Outlook
+    WaitForHybridJoinMinutes     = 90        # after the domain-join restart, wait up to this long for Microsoft 365 to register
+                                             # the PC (hybrid join) before the user's first sign-in, so Outlook/OneDrive need
+                                             # no password. Only when the domain has hybrid join set up. 0 = don't wait.
+    BlockWorkplaceJoinWhenHybrid = $true     # once the PC is hybrid joined, block the extra "Sign in to all apps / Allow your
+                                             # organization to manage your device" registration (avoids a double registration)
 
     # --- Windows Update --------------------------------------------------
     MaxUpdateRounds   = 6                    # stop after this many search/install rounds (each may reboot)

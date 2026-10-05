@@ -7,7 +7,7 @@ Automates the help-desk build of a new company PC:
 3. **Microsoft Store and app updates**: starts a Store update scan, then runs `winget upgrade --all`.
 4. **Company programs**, in this order: Google Chrome, Foxit PDF Reader, WinRAR, Microsoft 365 Apps, Keyloop Drive, AnyDesk (with the unattended-access password), CrowdStrike Falcon Sensor. The final summary shows each PC's AnyDesk ID.
 5. **Domain join**, renaming the PC at the same time if you gave it a new name.
-6. **First sign-in as the user**: after the final restart, the PC signs in once as the domain user it's for, then opens classic Outlook and OneDrive with their account.
+6. **First sign-in as the user**: after the final restart, the PC waits for Microsoft 365 to register it (hybrid join), then signs in once as the domain user it's for and opens classic Outlook and OneDrive. With hybrid join there's no password to type.
 
 You answer a few questions at the start: the PC name, the domain, and an account that can join PCs to the domain. After that it runs on its own.
 
@@ -38,20 +38,35 @@ The script copies itself to `C:\ProgramData\PCSetup\kit` before it starts, so yo
 
 At the start, after the domain account, the script asks for the **domain user who will use this PC** and their password. It checks the password against the domain straight away. Press Enter to skip this.
 
-After the domain join and the final restart:
+### With hybrid join (no password in Outlook or OneDrive)
 
-- **The PC signs in as that user once, by itself.** The password is kept in Windows' protected LSA store (the same method as Sysinternals Autologon), not in plain text. As soon as that sign-in happens, automatic sign-in is switched off and the password is deleted. The copy of the installers (including the 4 GB of Office files) is deleted at the same time.
-- **OneDrive starts and signs in with the Windows account.** If `OneDriveTenantId` is set in `config.psd1`, Desktop, Documents and Pictures also move into OneDrive.
-- **Classic Outlook opens and creates the mailbox profile** from the signed-in account. The "Try the new Outlook" switch is hidden, automatic migration to new Outlook is turned off, and the "new Outlook" app is removed (`RemoveNewOutlookApp`).
-- Outlook and OneDrive also open once for anyone else who signs in later, if no user was given.
+Outlook and OneDrive sign in by themselves only when Windows has a Microsoft 365 sign-in token. A domain PC gets that token once it is **hybrid joined**: registered in Microsoft 365 (Entra ID) through Entra Connect. The script checks AD for the hybrid join setting. If it's there:
 
-**The first time, classic Outlook asks for the password once.** After the PC is registered to the user in Microsoft 365, it stops asking. If your domain is linked to Microsoft 365 (Entra Connect with hybrid join), the script starts Windows' device registration at the first sign-in instead of waiting for Windows' own schedule. The registration still depends on your directory sync, so it can take a while to finish.
+1. After the domain-join restart, **don't sign in**. A background task keeps nudging Windows' own join task until Microsoft 365 has registered the PC. This takes about one Entra Connect sync cycle (30 minutes by default), and at most `WaitForHybridJoinMinutes` (90 by default).
+2. The PC then **restarts by itself and signs in as the user once**. Windows gets the Microsoft 365 token at that sign-in.
+3. **Classic Outlook opens and signs in by itself**, then OneDrive does the same. The user sees no password prompt and no "Allow your organization to manage your device".
 
-Automatic sign-in doesn't work if a Group Policy shows a logon message ("legal notice") before sign-in. In that case, the user signs in themselves, and Outlook and OneDrive still open.
+Requirements, set up by your AD/Entra admin:
 
-**PC already on the domain?** Double-click **`Setup-User.cmd`**. It asks for the user and their password, sets up classic Outlook, OneDrive and the one-time automatic sign-in, and restarts. Use it when setup ran without the user question, for example a run started by an older version, or one run with `-SkipDomainJoin`, which skips this part.
+- Hybrid join configured in Entra Connect. Check on any PC: `dsregcmd /status` → **AD Configuration Test : PASS**.
+- **New PCs land in an OU that Entra Connect syncs.** Set `OUPath` in `config.psd1` to that OU. If it isn't synced, `dsregcmd /status` keeps showing `error_missing_device` / "The device object by the given id … is not found", and the wait times out. The log then names the PC's OU.
+- To shorten the wait, the admin can run `Start-ADSyncSyncCycle -PolicyType Delta` on the Entra Connect server.
 
-Logs: `%LOCALAPPDATA%\PCSetup-FirstLogon.log` in the user's profile.
+Once the PC is hybrid joined, the script also blocks the separate "Sign in to all apps / Allow your organization to manage your device" registration (`BlockWorkplaceJoinWhenHybrid`). Microsoft recommends this, so a domain PC isn't registered twice.
+
+### Without hybrid join, or if the wait times out
+
+The PC signs in as the user, and **Outlook asks for the password once**. OneDrive is started after Outlook has signed in, so it can reuse that sign-in. If Outlook's sign-in doesn't finish, the first sign-in script tries again at the next sign-in or unlock, up to 3 times.
+
+### Everything else
+
+- **The password stays protected.** It is kept in Windows' protected LSA store (the same method as Sysinternals Autologon), not in plain text. At the first sign-in, automatic sign-in is switched off, and the password, the installer copies (including the 4 GB of Office files) and `config.psd1` are deleted.
+- **Classic Outlook builds the mail profile** from the signed-in account. The "Try the new Outlook" switch is hidden, automatic migration to new Outlook is off, and the "new Outlook" app is removed (`RemoveNewOutlookApp`).
+- **Desktop, Documents and Pictures move into OneDrive** if `OneDriveTenantId` is set in `config.psd1`.
+- **A logon message ("legal notice") from Group Policy** pauses the automatic sign-in until someone clicks OK.
+- **PC already on the domain?** Double-click **`Setup-User.cmd`**. It asks for the user and their password, sets up all of the above (including the hybrid join wait), and restarts.
+
+Logs: `C:\ProgramData\PCSetup\setup.log` (setup and the hybrid join wait), and `%LOCALAPPDATA%\PCSetup-FirstLogon.log` in the user's profile (Outlook and OneDrive).
 
 ## Things to know
 
