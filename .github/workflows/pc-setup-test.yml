@@ -125,7 +125,7 @@ jobs:
           foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
           $KitDir = "$PWD\PC-Setup"; $WorkDir = "$env:RUNNER_TEMP\pcsetup"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
           $LogFile = "$WorkDir\setup.log"; $StateFile = "$WorkDir\state.xml"
-          $FirstLogonDir = "$env:ProgramData\PCSetup-FirstLogon"; $FirstLogonTaskName = 'PCSetup-FirstLogon'; $CleanupTaskName = 'PCSetup-FirstLogonCleanup'; $WaitTaskName = 'PCSetup-WaitHybridJoin'
+          $FirstLogonDir = "$env:ProgramData\PCSetup-FirstLogon"; $FirstLogonTaskName = 'PCSetup-FirstLogon'; $CleanupTaskName = 'PCSetup-FirstLogonCleanup'; $WaitTaskName = 'PCSetup-WaitHybridJoin'; $PCSetupKey = 'HKLM:\SOFTWARE\PCSetup'
           $fail = @()
           function Check($name, $ok) { "{0,-50} {1}" -f $name, $(if ($ok) { 'OK' } else { 'FAIL' }); if (-not $ok) { $script:fail += $name } }
 
@@ -150,10 +150,13 @@ jobs:
           Check 'disarmed: secret stored'       ([PCSetup.Lsa]::Exists('DefaultPassword'))
           Check 'disarmed: AutoAdminLogon = 0'  ($wl.AutoAdminLogon -eq '0')
           Check 'disarmed: user stored'         ($wl.DefaultUserName -eq 'ahmed.ali')
-          Enable-AutoLogon
+          Set-ItemProperty $WinlogonKey -Name DefaultUserName -Value 'tech.who.signed.in'   # what Windows does on any sign-in
+          Check 'armed: Enable-AutoLogon succeeds' (Enable-AutoLogon)
           $wl = Get-ItemProperty $WinlogonKey
           Check 'armed: AutoAdminLogon = 1'     ($wl.AutoAdminLogon -eq '1' -and $wl.AutoLogonCount -eq 1)
+          Check 'armed: target user restored'   ($wl.DefaultUserName -eq 'ahmed.ali' -and $wl.DefaultDomainName -eq 'example.local')
           Clear-AutoLogon
+          Check 'no password: not armed'        (-not (Enable-AutoLogon) -and (Get-ItemProperty $WinlogonKey).AutoAdminLogon -eq '0')
 
           # UPN form
           $cred = New-Object PSCredential('ahmed.ali@example.com', (ConvertTo-SecureString 'x' -AsPlainText -Force))
@@ -162,7 +165,8 @@ jobs:
 
           # Unreachable domain -> $null, not $false; no SCP on a non-domain runner
           Check 'unreachable domain gives null' ($null -eq (Test-DomainCredential 'example.invalid' $cred))
-          Check 'no hybrid join SCP found'      ($null -eq (Get-HybridJoinScp 'example.invalid' $cred))
+          Check 'unreadable AD gives unknown'   ((Get-HybridJoinScp 'example.invalid' $cred) -eq 'unknown')
+          "signed-in user (explorer owner): '$(Get-SignedInUser)'"
           $ds = Get-DsregStatus
           Check 'dsregcmd parsed'               ($ds.ContainsKey('AzureAdJoined') -and $ds.ContainsKey('DomainJoined'))
           "dsregcmd: AzureAdJoined=$($ds['AzureAdJoined']) DomainJoined=$($ds['DomainJoined'])"
@@ -194,31 +198,39 @@ jobs:
           Check 'cleanup task runs as SYSTEM'    ($t2.Principal.UserId -match 'SYSTEM|S-1-5-18')
           Check 'wait task: SYSTEM at startup'   ($t3.Principal.UserId -match 'SYSTEM|S-1-5-18' -and $t3.Triggers[0].CimClass.CimClassName -eq 'MSFT_TaskBootTrigger')
           Check 'wait task passes -WaitHybridJoin' ($t3.Actions[0].Arguments -like '*-WaitHybridJoin*')
+          Check 'wait task wakes the PC'         ($t3.Settings.WakeToRun)
+          Check 'user task normal priority'      ($t1.Settings.Priority -eq 5)
+          Remove-FirstSignInTasks
+          Check 'previous run tasks removed'     (-not (Get-ScheduledTask -TaskName $WaitTaskName -EA SilentlyContinue) -and -not (Get-ScheduledTask -TaskName $CleanupTaskName -EA SilentlyContinue))
+          Register-WaitHybridJoinTask 90
           Check 'FirstLogon.ps1 copied'          (Test-Path "$FirstLogonDir\FirstLogon.ps1")
 
           # Wait for hybrid join (1 minute, runner can't join) - restart stubbed out
           $script:restarted = $false
           function Restart-Computer { param([switch]$Force) $script:restarted = $true }
-          $kit2 = "$env:RUNNER_TEMP\kitwait"; New-Item -ItemType Directory $kit2 -Force | Out-Null
-          "@{ WaitForHybridJoinMinutes = 1; BlockWorkplaceJoinWhenHybrid = `$true }" | Set-Content "$kit2\config.psd1"
-          $KitDir = $kit2
-          Unregister-ScheduledTask -TaskName $CleanupTaskName -Confirm:$false
+          New-Item $PCSetupKey -Force | Out-Null
           Set-AutoLogon (New-Object PSCredential('ahmed.ali', (ConvertTo-SecureString 'x' -AsPlainText -Force))) 'example.local' -Disarmed | Out-Null
+          Set-ItemProperty $PCSetupKey -Name WaitMinutes -Value 1
+          Set-ItemProperty $PCSetupKey -Name BlockWorkplaceJoin -Value 1
+          Set-ItemProperty $PCSetupKey -Name CheckScpAfterRestart -Value 0
           $sw = [Diagnostics.Stopwatch]::StartNew(); Invoke-WaitHybridJoin; $sw.Stop()
-          $who = (Get-CimInstance Win32_ComputerSystem).UserName
+          $who = Get-SignedInUser
           "wait took $([int]$sw.Elapsed.TotalSeconds) s; signed-in user: '$who'; restart requested: $script:restarted"
           Check 'wait gave up after the time limit' ($sw.Elapsed.TotalSeconds -ge 55 -and $sw.Elapsed.TotalSeconds -lt 200)
           Check 'wait task removed itself'        (-not (Get-ScheduledTask -TaskName $WaitTaskName -EA SilentlyContinue))
-          Check 'cleanup task registered by wait' ([bool](Get-ScheduledTask -TaskName $CleanupTaskName -EA SilentlyContinue))
           if ($who) {
-            Check 'someone signed in: no restart, auto sign-in off' (-not $script:restarted -and (Get-ItemProperty $WinlogonKey).AutoAdminLogon -eq '0')
+            Check 'someone signed in: no restart, auto sign-in off' (-not $script:restarted -and (Get-ItemProperty $WinlogonKey).AutoAdminLogon -eq '0' -and -not [PCSetup.Lsa]::Exists('DefaultPassword'))
           } else {
             Check 'nobody signed in: armed + restart' ($script:restarted -and (Get-ItemProperty $WinlogonKey).AutoAdminLogon -eq '1')
           }
           Check 'no hybrid join: WorkplaceJoin not blocked' (-not (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WorkplaceJoin' -EA SilentlyContinue).BlockAADWorkplaceJoin)
-          Get-Content $LogFile | Select-String 'hybrid|Microsoft 365|sign' | Select-Object -Last 6
+          Get-Content $LogFile | Select-String 'hybrid|Microsoft 365|sign|restart' | Select-Object -Last 6
           Clear-AutoLogon
-          $KitDir = "$PWD\PC-Setup"
+
+          # Complete-WaitHybridJoin when the cleanup already removed the password: never arms
+          $script:restarted = $false
+          Complete-WaitHybridJoin
+          Check 'password gone: not armed, no restart' (-not $script:restarted -and (Get-ItemProperty $WinlogonKey).AutoAdminLogon -eq '0')
 
           # FirstLogon.ps1: other user -> does nothing; target user -> counts an attempt; no Outlook here -> not done
           Remove-Item 'HKCU:\Software\PCSetup' -Recurse -EA SilentlyContinue
@@ -244,6 +256,7 @@ jobs:
           Check 'cleanup removed LSA secret'     (-not [PCSetup.Lsa]::Exists('DefaultPassword'))
           Check 'cleanup removed its task'       (-not (Get-ScheduledTask -TaskName $CleanupTaskName -EA SilentlyContinue))
           Check 'cleanup removed installers'     (-not (Test-Path "$KitDir\installers"))
+          Check 'cleanup removed PCSetup settings' (-not (Test-Path $PCSetupKey))
 
           if ($fail) { throw "Failed: $($fail -join ', ')" }
 

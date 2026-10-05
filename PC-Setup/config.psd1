@@ -24,6 +24,7 @@
                                              # no password. Only when the domain has hybrid join set up. 0 = don't wait.
     BlockWorkplaceJoinWhenHybrid = $true     # once the PC is hybrid joined, block the extra "Sign in to all apps / Allow your
                                              # organization to manage your device" registration (avoids a double registration)
+    ForceHybridJoinWait          = $false    # $true if hybrid join is set up by Group Policy (client-side SCP) instead of in AD
 
     # --- Windows Update --------------------------------------------------
     MaxUpdateRounds   = 6                    # stop after this many search/install rounds (each may reboot)

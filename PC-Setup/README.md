@@ -42,7 +42,7 @@ At the start, after the domain account, the script asks for the **domain user wh
 
 Outlook and OneDrive sign in by themselves only when Windows has a Microsoft 365 sign-in token. A domain PC gets that token once it is **hybrid joined**: registered in Microsoft 365 (Entra ID) through Entra Connect. The script checks AD for the hybrid join setting. If it's there:
 
-1. After the domain-join restart, **don't sign in**. A background task keeps nudging Windows' own join task until Microsoft 365 has registered the PC. This takes about one Entra Connect sync cycle (30 minutes by default), and at most `WaitForHybridJoinMinutes` (90 by default).
+1. After the domain-join restart, **leave the PC at the sign-in screen**. A background task keeps the PC awake and keeps nudging Windows' own join task until Microsoft 365 has registered the PC. This takes about one Entra Connect sync cycle (30 minutes by default), and at most `WaitForHybridJoinMinutes` (90 by default). **Signing in during the wait cancels it.** The PC then doesn't restart by itself, and Outlook asks for the password once.
 2. The PC then **restarts by itself and signs in as the user once**. Windows gets the Microsoft 365 token at that sign-in.
 3. **Classic Outlook opens and signs in by itself**, then OneDrive does the same. The user sees no password prompt and no "Allow your organization to manage your device".
 
@@ -51,6 +51,7 @@ Requirements, set up by your AD/Entra admin:
 - Hybrid join configured in Entra Connect. Check on any PC: `dsregcmd /status` → **AD Configuration Test : PASS**.
 - **New PCs land in an OU that Entra Connect syncs.** Set `OUPath` in `config.psd1` to that OU. If it isn't synced, `dsregcmd /status` keeps showing `error_missing_device` / "The device object by the given id … is not found", and the wait times out. The log then names the PC's OU.
 - To shorten the wait, the admin can run `Start-ADSyncSyncCycle -PolicyType Delta` on the Entra Connect server.
+- If your hybrid join is set up by Group Policy (client-side SCP) instead of in AD, set `ForceHybridJoinWait = $true`.
 
 Once the PC is hybrid joined, the script also blocks the separate "Sign in to all apps / Allow your organization to manage your device" registration (`BlockWorkplaceJoinWhenHybrid`). Microsoft recommends this, so a domain PC isn't registered twice.
 

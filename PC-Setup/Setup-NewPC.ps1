@@ -61,6 +61,7 @@ $FirstLogonDir = Join-Path $env:ProgramData 'PCSetup-FirstLogon'
 $FirstLogonTaskName = 'PCSetup-FirstLogon'
 $CleanupTaskName = 'PCSetup-FirstLogonCleanup'
 $WaitTaskName = 'PCSetup-WaitHybridJoin'
+$PCSetupKey = 'HKLM:\SOFTWARE\PCSetup'   # admin-only: who to sign in as, wait settings
 $LogFile   = Join-Path $WorkDir 'setup.log'
 $TaskName  = 'PCSetup-Resume'
 $Stages    = @('Regional', 'WindowsUpdate', 'StoreUpdates', 'Apps', 'DomainJoin', 'UserSetup', 'Done')
@@ -1104,15 +1105,27 @@ function Set-AutoLogon([pscredential]$Credential, [string]$Domain, [switch]$Disa
 
     [PCSetup.Lsa]::Store('DefaultPassword', $Credential.GetNetworkCredential().Password)
     Remove-ItemProperty -Path $WinlogonKey -Name DefaultPassword -ErrorAction SilentlyContinue
+    # Remember who to sign in as: Windows overwrites DefaultUserName with whoever signs in meanwhile.
+    New-Item -Path $PCSetupKey -Force -ErrorAction SilentlyContinue | Out-Null
+    Set-ItemProperty -Path $PCSetupKey -Name AutoLogonUser -Value $user
+    Set-ItemProperty -Path $PCSetupKey -Name AutoLogonDomain -Value $dom
     Set-ItemProperty -Path $WinlogonKey -Name DefaultUserName -Value $user
     Set-ItemProperty -Path $WinlogonKey -Name DefaultDomainName -Value $dom
-    if ($Disarmed) { Set-ItemProperty -Path $WinlogonKey -Name AutoAdminLogon -Value '0' } else { Enable-AutoLogon }
+    if ($Disarmed) { Set-ItemProperty -Path $WinlogonKey -Name AutoAdminLogon -Value '0' } else { [void](Enable-AutoLogon) }
     $(if ($dom) { "$dom\$user" } else { $user })
 }
 
 function Enable-AutoLogon {
+    # Switches on the stored one-time sign-in. Returns $false (and leaves it off) if the password or the
+    # target user is gone, e.g. because someone signed in and the cleanup already ran.
+    Import-LsaType
+    $target = Get-ItemProperty -Path $PCSetupKey -ErrorAction SilentlyContinue
+    if (-not [PCSetup.Lsa]::Exists('DefaultPassword') -or -not $target.AutoLogonUser) { return $false }
+    Set-ItemProperty -Path $WinlogonKey -Name DefaultUserName -Value $target.AutoLogonUser
+    Set-ItemProperty -Path $WinlogonKey -Name DefaultDomainName -Value "$($target.AutoLogonDomain)"
     Set-ItemProperty -Path $WinlogonKey -Name AutoAdminLogon -Value '1'
     New-ItemProperty -Path $WinlogonKey -Name AutoLogonCount -Value 1 -PropertyType DWord -Force | Out-Null
+    return $true
 }
 
 function Clear-AutoLogon {
@@ -1120,6 +1133,31 @@ function Clear-AutoLogon {
     [PCSetup.Lsa]::Store('DefaultPassword', $null)
     Set-ItemProperty -Path $WinlogonKey -Name AutoAdminLogon -Value '0'
     Remove-ItemProperty -Path $WinlogonKey -Name DefaultPassword, AutoLogonCount -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path $PCSetupKey -Name AutoLogonUser, AutoLogonDomain -ErrorAction SilentlyContinue
+}
+
+function Get-SignedInUser {
+    # Anyone with a desktop in any session (console, remote desktop, switched-away). Win32_ComputerSystem
+    # .UserName only reports the console. Returns a name, or $null when nobody is signed in.
+    try {
+        foreach ($p in @(Get-CimInstance Win32_Process -Filter "Name='explorer.exe'")) {
+            $owner = Invoke-CimMethod -InputObject $p -MethodName GetOwner
+            if ($owner.User) { return "$($owner.Domain)\$($owner.User)" }
+        }
+        return $null
+    } catch {
+        return 'unknown'   # can't tell - treat as signed in, so nothing restarts under anyone
+    }
+}
+
+function Set-KeepAwake {
+    # Keeps the PC (and screen) from sleeping while this process runs.
+    try {
+        if (-not ('PCSetup.Power' -as [type])) {
+            Add-Type -Namespace PCSetup -Name Power -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
+        }
+        [void][PCSetup.Power]::SetThreadExecutionState([uint32]'0x80000003')   # ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+    } catch { }
 }
 
 function Set-RegDword([string]$Key, [string]$Name, [int]$Value) {
@@ -1144,6 +1182,7 @@ function Set-DefaultUserSettings {
         Set-RegDword "$root\Microsoft\Office\16.0\Outlook\Options\General" 'HideNewOutlookToggle' 1    # no "Try the new Outlook" switch
         Set-RegDword "$root\Policies\Microsoft\Office\16.0\Outlook\Preferences" 'DoNewOutlookAutoMigration' 0
     } finally {
+        $ErrorActionPreference = 'Continue'   # in PS 5.1 a redirected stderr line would otherwise throw
         for ($i = 0; $i -lt 5; $i++) {
             [GC]::Collect()
             reg.exe unload 'HKU\PCSetupDefault' 2>&1 | Out-Null
@@ -1185,7 +1224,7 @@ function Register-FirstLogonTasks($State) {
     $logon.Delay = 'PT30S'
     $unlock = New-CimInstance -CimClass (Get-CimClass -Namespace 'Root/Microsoft/Windows/TaskScheduler' -ClassName 'MSFT_TaskSessionStateChangeTrigger') -ClientOnly
     $unlock.StateChange = 8   # TASK_SESSION_UNLOCK
-    $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
+    $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew -Priority 5   # normal priority - Outlook/OneDrive inherit it
     $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`"$userArg"
     $principal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Limited
     Register-ScheduledTask -TaskName $FirstLogonTaskName -Action $action -Trigger @($logon, $unlock) -Principal $principal -Settings $settings -Force | Out-Null
@@ -1200,10 +1239,18 @@ function Register-CleanupTask {
     Register-ScheduledTask -TaskName $CleanupTaskName -Action $action -Trigger (New-ScheduledTaskTrigger -AtLogOn) -Principal $principal -Settings $settings -Force | Out-Null
 }
 
+function Remove-FirstSignInTasks {
+    # A previous run's wait/cleanup tasks - stop them first, -Force on register doesn't end a running one.
+    foreach ($name in @($WaitTaskName, $CleanupTaskName)) {
+        Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue
+    }
+}
+
 function Register-WaitHybridJoinTask([int]$Minutes) {
     # Runs as SYSTEM after the next restart: waits for hybrid join, then restarts into the user's sign-in.
     $setup     = Join-Path $KitDir 'Setup-NewPC.ps1'
-    $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes ($Minutes + 30))
+    $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Minutes ($Minutes + 30))
     $action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$setup`" -WaitHybridJoin"
     $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
     Register-ScheduledTask -TaskName $WaitTaskName -Action $action -Trigger (New-ScheduledTaskTrigger -AtStartup) -Principal $principal -Settings $settings -Force | Out-Null
@@ -1211,6 +1258,7 @@ function Register-WaitHybridJoinTask([int]$Minutes) {
 
 function Get-DsregStatus {
     # dsregcmd /status as a name -> value table (first occurrence of each name).
+    $ErrorActionPreference = 'Continue'   # in PS 5.1 a redirected stderr line would otherwise throw
     $status = @{}
     foreach ($line in @(dsregcmd.exe /status 2>$null)) {
         if ($line -match '^\s*([\w ]+?)\s*:\s*(.*?)\s*$' -and -not $status.ContainsKey($Matches[1])) { $status[$Matches[1]] = $Matches[2] }
@@ -1233,9 +1281,14 @@ function Get-HybridJoinScp([string]$Domain, [pscredential]$Credential) {
             elseif ($k -match '^azureADName:(.+)$') { $result.TenantName = $Matches[1] }
         }
         if ($result.TenantId) { return $result }
-    } catch { }
+        $lookupFailed = $false
+    } catch {
+        Write-Log "Hybrid join check in AD: $($_.Exception.Message)" 'Warn'
+        $lookupFailed = $true
+    }
     $client = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CDJ\AAD' -ErrorAction SilentlyContinue
     if ($client.TenantId) { return @{ TenantId = $client.TenantId; TenantName = $client.TenantName } }
+    if ($lookupFailed) { return 'unknown' }
     return $null
 }
 
@@ -1260,29 +1313,46 @@ function Read-DomainUser([string]$Domain) {
 }
 
 function Initialize-FirstSignIn($Config, [string]$UserName, [pscredential]$Credential, [string]$Domain) {
-    # Sets up the user's first sign-in. Returns @{ Item; Result } entries for the summary and
-    # .Wait = $true when the PC should wait for hybrid join after the next restart.
+    # Sets up the user's first sign-in. Returns @{ Item; Result } entries for the summary.
     $out = @()
+    Remove-FirstSignInTasks
     $scp = Get-HybridJoinScp $Domain $Credential
-    if ($scp) {
+    if ($scp -is [hashtable]) {
         Write-Log "Hybrid join is set up for this domain (Microsoft 365: $($scp.TenantName))." 'Ok'
         $out += @{ Item = 'Hybrid join'; Result = "Set up in AD ($($scp.TenantName))" }
+    } elseif ($scp -eq 'unknown') {
+        Write-Log "Couldn't read the hybrid join setting from AD - it is checked again after the restart." 'Warn'
+        $out += @{ Item = 'Hybrid join'; Result = "Couldn't check AD yet - checked again after the restart" }
     } else {
         Write-Log 'No hybrid join setting found in AD - Outlook will ask for the password once at the first sign-in.' 'Warn'
         $out += @{ Item = 'Hybrid join'; Result = 'Not set up in AD - Outlook asks for the password once' }
     }
-    $minutes = if ($null -ne $Config.WaitForHybridJoinMinutes) { [int]$Config.WaitForHybridJoinMinutes } else { 90 }
-    $already = (Get-DsregStatus)['AzureAdJoined'] -eq 'YES'
-    $wait = $Credential -and $scp -and $minutes -gt 0 -and -not $already
+    $minutes = 90
+    if ($null -ne $Config.WaitForHybridJoinMinutes) { $minutes = [int]$Config.WaitForHybridJoinMinutes }
+    $ds = Get-DsregStatus
+    $already = $ds['AzureAdJoined'] -eq 'YES'
+    if ($ds['DeviceAuthStatus'] -like 'FAILED*') {
+        Write-Log "This PC's Microsoft 365 registration is broken ($($ds['DeviceAuthStatus'])) - run 'dsregcmd /debug /leave' as admin and restart so it registers again." 'Warn'
+    }
+    # Wait when AD has the setting, when AD couldn't be read (checked again after the restart), or when told
+    # to (hybrid join set up by Group Policy instead of in AD).
+    $wait = [bool]($Credential -and $minutes -gt 0 -and -not $already -and ($scp -or $Config.ForceHybridJoinWait))
 
     try { Set-MachinePolicies $Config } catch { Write-Log "OneDrive/Outlook policies: $($_.Exception.Message)" 'Warn' }
     try { Set-DefaultUserSettings } catch { Write-Log "Default profile settings: $($_.Exception.Message)" 'Warn' }
-    if ($already -and $Config.BlockWorkplaceJoinWhenHybrid) { Block-WorkplaceJoin }
+    if ($already -and $Config.BlockWorkplaceJoinWhenHybrid) { try { Block-WorkplaceJoin } catch { Write-Log "$($_.Exception.Message)" 'Warn' } }
 
     $tasksOk = $true
     try {
         Register-FirstLogonTasks @{ UserName = $UserName }
-        if ($wait) { Register-WaitHybridJoinTask $minutes } else { Register-CleanupTask }
+        Register-CleanupTask   # always: whoever signs in first removes the stored password and installers
+        if ($wait) {
+            New-Item -Path $PCSetupKey -Force -ErrorAction SilentlyContinue | Out-Null
+            Set-ItemProperty -Path $PCSetupKey -Name WaitMinutes -Value $minutes
+            Set-ItemProperty -Path $PCSetupKey -Name BlockWorkplaceJoin -Value ([int][bool]$Config.BlockWorkplaceJoinWhenHybrid)
+            Set-ItemProperty -Path $PCSetupKey -Name CheckScpAfterRestart -Value ([int](-not ($scp -is [hashtable])))
+            Register-WaitHybridJoinTask $minutes
+        }
         $out += @{ Item = 'Outlook / OneDrive'; Result = 'Open at the first sign-in (Outlook first, then OneDrive)' }
     } catch {
         $tasksOk = $false
@@ -1294,8 +1364,8 @@ function Initialize-FirstSignIn($Config, [string]$UserName, [pscredential]$Crede
         try {
             $account = Set-AutoLogon $Credential $Domain -Disarmed:$wait
             if ($wait) {
-                Write-Log "After the restart the PC waits up to $minutes minutes for Microsoft 365 to register it, then restarts once more and signs in as $account - no password needed in Outlook or OneDrive. Don't sign in meanwhile." 'Ok'
-                $out += @{ Item = 'First sign-in'; Result = "Signs in as $account once Microsoft 365 has registered the PC (up to $minutes min after the restart)" }
+                Write-Log "After the restart LEAVE THE PC AT THE SIGN-IN SCREEN: it waits up to $minutes minutes for Microsoft 365 to register it, then restarts once more and signs in as $account - no password needed in Outlook or OneDrive. Signing in meanwhile cancels this." 'Ok'
+                $out += @{ Item = 'First sign-in'; Result = "Signs in as $account once Microsoft 365 has registered the PC (up to $minutes min after the restart) - leave it at the sign-in screen" }
             } else {
                 Write-Log "After the restart the PC signs in as $account (once)." 'Ok'
                 $out += @{ Item = 'First sign-in'; Result = "Signs in automatically as $account after the restart" }
@@ -1306,6 +1376,7 @@ function Initialize-FirstSignIn($Config, [string]$UserName, [pscredential]$Crede
         } catch {
             Write-Log "Couldn't set up automatic sign-in: $($_.Exception.Message)" 'Error'
             $out += @{ Item = 'First sign-in'; Result = "FAILED - $($_.Exception.Message)" }
+            try { Clear-AutoLogon } catch { }   # don't leave a half-stored password behind
             Unregister-ScheduledTask -TaskName $WaitTaskName -Confirm:$false -ErrorAction SilentlyContinue
         }
     } elseif ($Credential) {
@@ -1332,8 +1403,17 @@ function Invoke-UserSetupStage($State, $Config) {
 
     Write-Log 'Preparing the first sign-in (classic Outlook, OneDrive)' 'Step'
     try {
-        $cred = if (Test-Path $UserCredFile) { Import-Clixml $UserCredFile }
+        $cred = $null
+        if (Test-Path $UserCredFile) {
+            try { $cred = Import-Clixml $UserCredFile } catch {
+                Write-Log "Couldn't read the saved user password: $($_.Exception.Message)" 'Error'
+                Add-Result $State 'First sign-in' "FAILED - couldn't read the saved password; run Setup-User.cmd after the restart"
+            }
+        }
         foreach ($r in @(Initialize-FirstSignIn $Config $State.UserName $cred $State.DomainName)) { Add-Result $State $r.Item $r.Result }
+    } catch {
+        Write-Log "First sign-in setup failed: $($_.Exception.Message)" 'Error'
+        Add-Result $State 'First sign-in' "FAILED - $($_.Exception.Message); run Setup-User.cmd after the restart"
     } finally {
         Remove-Item $UserCredFile -Force -ErrorAction SilentlyContinue
     }
@@ -1343,46 +1423,75 @@ function Invoke-WaitHybridJoin {
     # SYSTEM, at startup after the domain-join restart. The PC writes its certificate to AD, Entra Connect
     # syncs it (every 30 min by default), and the next join attempt completes. Then the user's sign-in
     # gets a Microsoft 365 token, so Outlook and OneDrive sign in by themselves.
-    $config = Import-PowerShellDataFile (Join-Path $KitDir 'config.psd1')
-    $minutes = if ($null -ne $config.WaitForHybridJoinMinutes) { [int]$config.WaitForHybridJoinMinutes } else { 90 }
+    Set-KeepAwake
+    $settings = Get-ItemProperty -Path $PCSetupKey -ErrorAction SilentlyContinue
+    $minutes = if ($settings.WaitMinutes) { [int]$settings.WaitMinutes } else { 90 }
     Write-Log "Waiting up to $minutes minutes for Microsoft 365 to register this PC (hybrid join)" 'Step'
-    $deadline = (Get-Date).AddMinutes($minutes)
-    $lastKick = [datetime]::MinValue
-    while ($true) {
-        $ds = Get-DsregStatus
-        if ($ds['AzureAdJoined'] -eq 'YES' -or (Get-Date) -ge $deadline) { break }
-        if (((Get-Date) - $lastKick).TotalMinutes -ge 5) {   # Windows' own task; documented to retry no faster than this
+
+    $skip = $false
+    if ($settings.CheckScpAfterRestart) {
+        # AD couldn't be read before the restart, or the setting comes from Group Policy: look again now.
+        $ErrorActionPreference = 'Continue'
+        & gpupdate.exe /target:computer /wait:120 2>&1 | Out-Null
+        $ErrorActionPreference = 'Stop'
+        $scp = Get-HybridJoinScp (Get-CimInstance Win32_ComputerSystem).Domain $null
+        if ($null -eq $scp) {
+            Write-Log 'This domain has no hybrid join setting - not waiting.' 'Warn'
+            $skip = $true
+        }
+    }
+
+    # Count minutes awake rather than clock time, so a sleep can't use up the wait.
+    $ds = Get-DsregStatus
+    for ($i = 0; -not $skip -and $ds['AzureAdJoined'] -ne 'YES' -and $i -lt $minutes; $i++) {
+        if ($i % 5 -eq 0) {   # Windows' own join task; documented to retry no faster than this
             try { Start-ScheduledTask -TaskPath '\Microsoft\Windows\Workplace Join\' -TaskName 'Automatic-Device-Join' } catch { }
-            $lastKick = Get-Date
         }
         Start-Sleep -Seconds 60
+        $ds = Get-DsregStatus
     }
 
     if ($ds['AzureAdJoined'] -eq 'YES') {
         Write-Log 'Microsoft 365 registered this PC (hybrid joined).' 'Ok'
-        if ($config.BlockWorkplaceJoinWhenHybrid) { try { Block-WorkplaceJoin } catch { Write-Log "$($_.Exception.Message)" 'Warn' } }
-    } else {
-        $dn = try { ([adsisearcher]"(&(objectCategory=computer)(name=$env:COMPUTERNAME))").FindOne().Path } catch { 'unknown' }
-        Write-Log "Microsoft 365 did not register this PC within $minutes minutes ($($ds['Server ErrorSubCode']) $($ds['Server Message'])). Check that Entra Connect syncs the OU this PC is in: $dn" 'Warn'
+        if ($settings.BlockWorkplaceJoin) { try { Block-WorkplaceJoin } catch { Write-Log "$($_.Exception.Message)" 'Warn' } }
+    } elseif (-not $skip) {
+        $why = (@('Error Phase', 'Client ErrorCode', 'Server ErrorCode', 'Server ErrorSubCode', 'Server Message') |
+            Where-Object { $ds[$_] } | ForEach-Object { "$_ = $($ds[$_])" }) -join '; '
+        Write-Log "Microsoft 365 did not register this PC within $minutes minutes. $why" 'Warn'
+        if ($ds['Server ErrorSubCode'] -eq 'error_missing_device' -or $ds['Server ErrorCode'] -eq 'DirectoryError' -or $ds['Server Message'] -like '*not found*') {
+            $dn = try { ([adsisearcher]"(&(objectCategory=computer)(name=$env:COMPUTERNAME))").FindOne().Path } catch { 'unknown' }
+            Write-Log "Microsoft 365 hasn't received this computer from Entra Connect. Check that Entra Connect syncs its OU: $dn (set OUPath in config.psd1)." 'Warn'
+        } else {
+            Write-Log 'Check that the PC can reach enterpriseregistration.windows.net and login.microsoftonline.com as SYSTEM (proxy/firewall).' 'Warn'
+        }
         Write-Log 'Signing in anyway - Outlook will ask for the password once.' 'Warn'
     }
+    Complete-WaitHybridJoin
+}
 
-    Register-CleanupTask
+function Complete-WaitHybridJoin {
+    # Ends the wait: restart into the one-time sign-in, unless someone is already signed in.
     Unregister-ScheduledTask -TaskName $WaitTaskName -Confirm:$false -ErrorAction SilentlyContinue
-    $who = (Get-CimInstance Win32_ComputerSystem).UserName
+    $who = Get-SignedInUser
     if ($who) {
-        # Someone signed in during the wait - don't restart under them.
-        Write-Log "$who is already signed in - not restarting; automatic sign-in switched off." 'Warn'
-        Clear-AutoLogon
+        Write-Log "$who is signed in - not restarting; automatic sign-in switched off." 'Warn'
+        try { Clear-AutoLogon } catch { }
         return
     }
-    Enable-AutoLogon
-    Write-Log 'Restarting into the first sign-in.' 'Ok'
-    Restart-Computer -Force
+    if (Enable-AutoLogon) {
+        Write-Log 'Restarting into the first sign-in.' 'Ok'
+        Restart-Computer -Force
+    } else {
+        Write-Log 'The stored sign-in is gone (someone signed in meanwhile) - not restarting.' 'Warn'
+    }
 }
 
 function Invoke-FirstLogonCleanup {
     Clear-AutoLogon
+    # A sign-in during the wait ends the wait.
+    Stop-ScheduledTask -TaskName $WaitTaskName -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $WaitTaskName -Confirm:$false -ErrorAction SilentlyContinue
+    Remove-Item -Path $PCSetupKey -Recurse -Force -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $CleanupTaskName -Confirm:$false -ErrorAction SilentlyContinue
     Remove-Item (Join-Path $KitDir 'installers'), (Join-Path $KitDir 'config.psd1') -Recurse -Force -ErrorAction SilentlyContinue
     Write-Log 'First sign-in done: automatic sign-in is off, the saved password, the installer copies and config.psd1 are removed.' 'Ok'
@@ -1406,8 +1515,8 @@ if ($FirstLogonCleanup) {
 }
 if ($WaitHybridJoin) {
     try { Invoke-WaitHybridJoin } catch {
-        Write-Log "Waiting for hybrid join failed: $($_.Exception.Message) - restarting into the first sign-in anyway." 'Error'
-        try { Register-CleanupTask; Unregister-ScheduledTask -TaskName $WaitTaskName -Confirm:$false -ErrorAction SilentlyContinue; Enable-AutoLogon; Restart-Computer -Force } catch { }
+        Write-Log "Waiting for hybrid join failed: $($_.Exception.Message) - going on to the first sign-in." 'Error'
+        try { Complete-WaitHybridJoin } catch { Write-Log "$($_.Exception.Message)" 'Error' }
     }
     exit 0
 }
@@ -1436,10 +1545,7 @@ if ($SetupUser) {
 }
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 # Keep the PC awake with the screen on (no sleep, no lock) while setup runs; ends with this window.
-try {
-    Add-Type -Namespace PCSetup -Name Power -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
-    [void][PCSetup.Power]::SetThreadExecutionState([uint32]'0x80000003')   # ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
-} catch { }
+Set-KeepAwake
 try { Start-Transcript -Path (Join-Path $WorkDir 'transcript.log') -Append | Out-Null } catch { }
 try { $Host.UI.RawUI.WindowTitle = 'New PC setup - do not close' } catch { }
 
