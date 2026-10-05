@@ -28,7 +28,8 @@
     #  WingetId  : installed from winget (internet)
     #  DownloadUrl : downloaded at install time (Signer = required code-signing company)
     #  Installer : a file in this kit (relative path) or a full/UNC path; '...\*' = newest .exe/.msi in that folder
-    #  Arguments : silent switches; AUTO = work them out from the installer type
+    #  Arguments : silent switches; AUTO = work them out from the installer type;
+    #              CLICKTHROUGH = press Next/Install/Finish in its wizard (Check = boxes to tick)
     #              .msi files get "/i <file> /qn /norestart" automatically
     #              {KIT} in Arguments = the folder this kit runs from
     #  Detect    : how to tell it's already installed, so re-runs skip it
@@ -52,14 +53,17 @@
             WaitMinutes = 60     # some Office installers return before Office is fully installed
         }
 
-        # Put the Keyloop Drive installer (.exe or .msi) in installers\Keyloop\ - any file name.
-        # AUTO works out the silent switches from the installer type; if it can't, put the
-        # switches here instead (e.g. '/S' or '/quiet').
+        # Keyloop KCML KClient: put its setup.exe in installers\Keyloop\ (any name).
+        # It has no silent mode, so CLICKTHROUGH presses Next / Install / Finish in its wizard,
+        # keeping the defaults. To tick options on the way, list them, e.g.
+        #   Check = @("Add to 'Start Menu'", 'Add desktop items')
         @{
-            Name      = 'Keyloop Drive'
-            Installer = 'installers\Keyloop\*'
-            Arguments = 'AUTO'
-            Detect    = @{ DisplayName = '*Keyloop*' }
+            Name        = 'Keyloop KCML KClient'
+            Installer   = 'installers\Keyloop\*'
+            Arguments   = 'CLICKTHROUGH'
+            Check       = @()
+            Detect      = @{ DisplayName = '*KClient*' }
+            WaitMinutes = 5
         }
 
         # AnyDesk from anydesk.com (signature checked), starts with Windows.

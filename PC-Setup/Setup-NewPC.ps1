@@ -569,6 +569,57 @@ $SilentSwitches = @{
     'Squirrel'           = '--silent'
 }
 
+function Get-ProcessTree([int]$RootId) {
+    $all = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
+    $ids = @($RootId)
+    for ($i = 0; $i -lt $ids.Count; $i++) { $ids += @($all | Where-Object { $_.ParentProcessId -eq $ids[$i] -and $_.ProcessId -notin $ids } | ForEach-Object { [int]$_.ProcessId }) }
+    $ids
+}
+
+$ClickButtons = '^(Next|I Agree|I Accept|Accept|Install|Finish|Close|OK)\b'
+
+function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [string[]]$Check) {
+    # Presses Next / Install / Finish in the installer's own windows (keeping every default) until it exits.
+    # Only windows that belong to the installer process or its children are touched; never Cancel or Back.
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $A = [Windows.Automation.AutomationElement]
+    $buttonCond = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
+    $checkCond  = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::CheckBox)
+    $lastClick = Get-Date
+    while (-not $Process.HasExited) {
+        Start-Sleep -Milliseconds 1500
+        try {
+            $ids = Get-ProcessTree $Process.Id
+            $windows = $A::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) |
+                Where-Object { $_.Current.ProcessId -in $ids }
+            if (-not $windows) { $lastClick = Get-Date }   # working silently or between steps - not stuck
+            foreach ($w in $windows) {
+                foreach ($cb in $w.FindAll([Windows.Automation.TreeScope]::Descendants, $checkCond)) {
+                    if ($Check -and ($Check | Where-Object { $cb.Current.Name -like $_ })) {
+                        $toggle = $cb.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
+                        if ($toggle.Current.ToggleState -eq 'Off') { $toggle.Toggle(); Write-Log "  ticked '$($cb.Current.Name)'" }
+                    }
+                }
+                $button = $w.FindAll([Windows.Automation.TreeScope]::Descendants, $buttonCond) |
+                    Where-Object { $_.Current.IsEnabled -and ($_.Current.Name -replace '&', '') -match $ClickButtons -and
+                                   $_.Current.AutomationId -notin 'Close', 'Minimize', 'Maximize', 'Restore' } |   # title-bar buttons
+                    Select-Object -First 1
+                if ($button) {
+                    $name = $button.Current.Name -replace '&', ''
+                    $button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+                    Write-Log "  $AppName installer: clicked '$name'"
+                    $lastClick = Get-Date
+                    Start-Sleep -Seconds 2
+                    break
+                }
+            }
+        } catch { }   # windows come and go while the wizard moves on
+        if (((Get-Date) - $lastClick).TotalMinutes -gt 30) {
+            throw "the installer has been waiting for 30 minutes on a step that couldn't be clicked automatically"
+        }
+    }
+}
+
 function Install-FileApp($App) {
     if ($App.DownloadUrl) {
         $dir = Join-Path $WorkDir 'downloads'
@@ -589,16 +640,23 @@ function Install-FileApp($App) {
     }
 
     $appArgs = "$($App.Arguments)".Trim()
-    if ($appArgs -eq 'AUTO') {
+    $clickThrough = $false
+    if ($appArgs -eq 'CLICKTHROUGH') {
+        $appArgs = ''
+        $clickThrough = $true
+    } elseif ($appArgs -eq 'AUTO') {
+        $clickThrough = $true   # also a safety net in case the silent switches are ignored
         if ($path -like '*.msi') {
             $appArgs = ''
         } else {
             $kind = Get-InstallerKind $path
-            if (-not $kind) {
-                throw "can't tell how to install $([IO.Path]::GetFileName($path)) silently - put its silent switches in Arguments in config.psd1"
+            if ($kind) {
+                $appArgs = $SilentSwitches[$kind]
+                Write-Log "$([IO.Path]::GetFileName($path)) is a $kind installer - using $appArgs"
+            } else {
+                $appArgs = ''
+                Write-Log "$([IO.Path]::GetFileName($path)) has no known silent switches - clicking through its setup wizard with the default answers."
             }
-            $appArgs = $SilentSwitches[$kind]
-            Write-Log "$([IO.Path]::GetFileName($path)) is a $kind installer - using $appArgs"
         }
     }
     if ($appArgs -match '\{CID\}') { $appArgs = $appArgs.Replace('{CID}', (Get-CrowdStrikeCid $App)) }
@@ -612,10 +670,15 @@ function Install-FileApp($App) {
     }
     $arguments = $arguments.Replace('{KIT}', $KitDir)
     Write-Log "Running $([IO.Path]::GetFileName($path)) $($arguments -replace 'CID=\S+', 'CID=***')"
-    $start = @{ FilePath = $file; Wait = -not $App.NoWait; PassThru = $true }
+    $start = @{ FilePath = $file; Wait = -not ($App.NoWait -or $clickThrough); PassThru = $true }
     if ($arguments) { $start.ArgumentList = $arguments }
     $p = Start-Process @start
     if ($App.NoWait) { return 'Installed' }   # finished when Detect finds it
+    if ($clickThrough) {
+        $null = $p.Handle   # keeps the exit code readable after the process ends
+        Invoke-ClickThrough $p $App.Name @($App.Check)
+        $p.WaitForExit()
+    }
     if ($p.ExitCode -in $InstallerOk) { return 'Installed' }
     throw "installer exit code $($p.ExitCode)"
 }
@@ -996,6 +1059,11 @@ if ($FirstLogonCleanup) {
     exit 0
 }
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+# Keep the PC awake with the screen on (no sleep, no lock) while setup runs; ends with this window.
+try {
+    Add-Type -Namespace PCSetup -Name Power -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
+    [void][PCSetup.Power]::SetThreadExecutionState([uint32]'0x80000003')   # ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
+} catch { }
 try { Start-Transcript -Path (Join-Path $WorkDir 'transcript.log') -Append | Out-Null } catch { }
 try { $Host.UI.RawUI.WindowTitle = 'New PC setup - do not close' } catch { }
 

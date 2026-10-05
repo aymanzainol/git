@@ -192,7 +192,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\PC-Setup\Setup-NewPC.ps1", [ref]$null, [ref]$null)
           foreach ($a in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.AssignmentStatementAst] -and $args[0].Parent -eq $ast.EndBlock }, $false)) {
-            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk') { . ([scriptblock]::Create($a.Extent.Text)) }
+            if ($a.Left.Extent.Text -in '$SilentSwitches', '$InstallerOk', '$ClickButtons') { . ([scriptblock]::Create($a.Extent.Text)) }
           }
           foreach ($f in $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) { . ([scriptblock]::Create($f.Extent.Text)) }
           $WorkDir = "$env:RUNNER_TEMP\pcsetup"; $LogFile = "$WorkDir\setup.log"; New-Item -ItemType Directory $WorkDir -Force | Out-Null
@@ -202,6 +202,8 @@ jobs:
 
           # Real installers of each type, laid out like the kit: installers\<App>\<any name>.exe
           $samples = [ordered]@{ 'Notepad++.Notepad++' = 'NSIS'; 'JRSoftware.InnoSetup' = 'Inno Setup'; 'Microsoft.VCRedist.2015+.x64' = 'WiX' }
+          winget download --id 7zip.7zip --exact --installer-type exe --download-directory "$KitDir\installers\7zip" --accept-source-agreements --accept-package-agreements --disable-interactivity | Out-Null
+          Get-ChildItem "$KitDir\installers\7zip" -Filter *.yaml | Remove-Item
           foreach ($id in $samples.Keys) {
             $dir = "$KitDir\installers\$($id -replace '[^\w]', '')"
             winget download --id $id --exact --download-directory $dir --accept-source-agreements --accept-package-agreements --disable-interactivity | Out-Null
@@ -215,14 +217,19 @@ jobs:
 
           # End to end with AUTO: these would sit on a wizard (and time out) if not silent
           foreach ($t in @(
-              @{ Name = 'Notepad++'; Installer = 'installers\NotepadNotepad\*'; Arguments = 'AUTO'; Detect = @{ Path = '%ProgramFiles%\Notepad++\notepad++.exe' } }
-              @{ Name = 'Inno Setup'; Installer = 'installers\JRSoftwareInnoSetup\*'; Arguments = 'AUTO'; Detect = @{ DisplayName = 'Inno Setup*' } })) {
+              # Wizard clicked through (language, Next, I Agree, Next, Install, Finish) - like Keyloop KCML KClient
+              @{ Name = 'Notepad++ (click-through)'; Installer = 'installers\NotepadNotepad\*'; Arguments = 'CLICKTHROUGH'; Detect = @{ Path = '%ProgramFiles%\Notepad++\notepad++.exe' } }
+              @{ Name = 'Inno Setup'; Installer = 'installers\JRSoftwareInnoSetup\*'; Arguments = 'AUTO'; Detect = @{ DisplayName = 'Inno Setup*' } }
+              # Unknown installer type -> AUTO falls back to clicking through
+              @{ Name = '7-Zip (unknown type)'; Installer = 'installers\7zip\*'; Arguments = 'AUTO'; Detect = @{ Path = '%ProgramFiles%\7-Zip\7z.exe' } })) {
             Check "$($t.Name): nothing to skip" ($null -eq (Get-SkipReason $t))
             # A wizard would block here until the job's 20-minute limit fails the run.
             $result = Install-FileApp $t
             Check "$($t.Name): installer finished ($result)" ($result -eq 'Installed')
             Check "$($t.Name): installed silently (no wizard)" (Wait-AppInstalled ($t + @{ WaitMinutes = 2 }))
           }
+
+          Get-Content $LogFile | Select-String 'clicked|installer|switches'
 
           # CrowdStrike folder exactly like the help desk's
           $cs = "$KitDir\installers\CrowdStrike"; New-Item -ItemType Directory $cs -Force | Out-Null
