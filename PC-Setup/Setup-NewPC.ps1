@@ -684,15 +684,18 @@ namespace PCSetup {
             }
         }
 
+        // True when the secret holds a non-empty value.
         public static bool Exists(string key) {
             IntPtr handle = Open(POLICY_GET_PRIVATE_INFORMATION);
             LSA_UNICODE_STRING k = Str(key);
             try {
                 IntPtr data;
                 uint status = LsaRetrievePrivateData(handle, ref k, out data);
-                if (status != 0) return false;
-                if (data != IntPtr.Zero) LsaFreeMemory(data);
-                return true;
+                if (status != 0 || data == IntPtr.Zero) return false;
+                // A deleted secret can linger as an empty value; that counts as no password.
+                var value = (LSA_UNICODE_STRING)Marshal.PtrToStructure(data, typeof(LSA_UNICODE_STRING));
+                LsaFreeMemory(data);
+                return value.Length > 0;
             } finally {
                 Marshal.FreeHGlobal(k.Buffer);
                 LsaClose(handle);
