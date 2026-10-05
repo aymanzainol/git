@@ -576,6 +576,10 @@ function Get-ProcessTree([int]$RootId) {
     $ids
 }
 
+function Stop-InstallerTree([Diagnostics.Process]$Process) {
+    foreach ($id in @(Get-ProcessTree $Process.Id | Sort-Object -Descending)) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
+}
+
 $ClickButtons = '^(Next|I Agree|I Accept|Accept|Install|Finish|Close|OK)\b'
 
 function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [string[]]$Check) {
@@ -586,13 +590,20 @@ function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [s
     $buttonCond = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
     $checkCond  = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::CheckBox)
     $lastClick = Get-Date
+    $started = Get-Date
+    $sawWindow = $false
+    $warned = $false
     while (-not $Process.HasExited) {
         Start-Sleep -Milliseconds 1500
         try {
             $ids = Get-ProcessTree $Process.Id
             $windows = $A::RootElement.FindAll([Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) |
                 Where-Object { $_.Current.ProcessId -in $ids }
-            if (-not $windows) { $lastClick = Get-Date }   # working silently or between steps - not stuck
+            if ($windows) { $sawWindow = $true } else { $lastClick = Get-Date }   # working silently or between steps - not stuck
+            if (-not $sawWindow -and -not $warned -and ((Get-Date) - $started).TotalMinutes -gt 2) {
+                Write-Log "  $AppName installer: still waiting for its window (if it's showing, it may need a click)" 'Warn'
+                $warned = $true
+            }
             foreach ($w in $windows) {
                 foreach ($cb in $w.FindAll([Windows.Automation.TreeScope]::Descendants, $checkCond)) {
                     if ($Check -and ($Check | Where-Object { $cb.Current.Name -like $_ })) {
@@ -615,7 +626,12 @@ function Invoke-ClickThrough([Diagnostics.Process]$Process, [string]$AppName, [s
             }
         } catch { }   # windows come and go while the wizard moves on
         if (((Get-Date) - $lastClick).TotalMinutes -gt 30) {
-            throw "the installer has been waiting for 30 minutes on a step that couldn't be clicked automatically"
+            Stop-InstallerTree $Process
+            throw "the installer waited 30 minutes on a step that couldn't be clicked automatically"
+        }
+        if (((Get-Date) - $started).TotalMinutes -gt 45) {
+            Stop-InstallerTree $Process
+            throw 'the installer was still running after 45 minutes - stopped it'
         }
     }
 }
