@@ -22,6 +22,13 @@ jobs:
           if errorlevel 1 exit /b 1
           dir PC-Setup\installers\Office
 
+      - name: Download OfficeSetup.exe (the installer the help desk uses)
+        shell: powershell
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest 'https://c2rsetup.officeapps.live.com/c2r/download.aspx?ProductreleaseID=O365ProPlusRetail&platform=x64&language=en-us&version=O16GA' -OutFile PC-Setup\installers\Office\OfficeSetup.exe -UseBasicParsing
+          (Get-AuthenticodeSignature PC-Setup\installers\Office\OfficeSetup.exe).SignerCertificate.Subject
+
       - name: Run Setup-NewPC.ps1 (no Windows Update, no domain join)
         shell: powershell
         run: |
@@ -218,13 +225,20 @@ jobs:
             Check "$id detected as $($samples[$id]) (got: $kind)" ($kind -eq $samples[$id])
           }
 
+          # Clicking through needs a desktop; hosted runners may not have one.
+          $desktop = (Get-Process -Id $PID).SessionId -ne 0
+          "Interactive desktop: $desktop"
+          if (-not $desktop) { Write-Host '::warning::No interactive desktop on this runner - click-through cases skipped' }
+
           # End to end with AUTO: these would sit on a wizard (and time out) if not silent
-          foreach ($t in @(
+          $cases = @(
               # Wizard clicked through (language, Next, I Agree, Next, Install, Finish) - like Keyloop KCML KClient
               @{ Name = 'Notepad++ (click-through)'; Installer = 'installers\NotepadNotepad\*'; Arguments = 'CLICKTHROUGH'; Detect = @{ Path = '%ProgramFiles%\Notepad++\notepad++.exe' } }
               @{ Name = 'Inno Setup'; Installer = 'installers\JRSoftwareInnoSetup\*'; Arguments = 'AUTO'; Detect = @{ DisplayName = 'Inno Setup*' } }
               # Unknown installer type -> AUTO falls back to clicking through
-              @{ Name = '7-Zip (unknown type)'; Installer = 'installers\7zip\*'; Arguments = 'AUTO'; Detect = @{ Path = '%ProgramFiles%\7-Zip\7z.exe' } })) {
+              @{ Name = '7-Zip (unknown type)'; Installer = 'installers\7zip\*'; Arguments = 'AUTO'; Detect = @{ Path = '%ProgramFiles%\7-Zip\7z.exe' } })
+          if (-not $desktop) { $cases = @($cases | Where-Object { $_.Name -notmatch 'click-through|unknown type' }) }
+          foreach ($t in $cases) {
             Check "$($t.Name): nothing to skip" ($null -eq (Get-SkipReason $t))
             # A wizard would block here until the job's 20-minute limit fails the run.
             $result = Install-FileApp $t

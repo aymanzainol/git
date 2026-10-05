@@ -362,6 +362,9 @@ function Invoke-RegionalStage($State, $Config) {
             reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\tzautoupdate' /v Start /t REG_DWORD /d 4 /f | Out-Null
             Set-TimeZone -Id $Config.TimeZone
             Write-Log "Time zone: $((Get-TimeZone).DisplayName)" 'Ok'
+            # "Set time automatically" on: Windows Time service running and synced now.
+            Set-Service -Name W32Time -StartupType Automatic
+            Start-Service -Name W32Time -ErrorAction SilentlyContinue
             Start-Process w32tm.exe -ArgumentList '/resync /nowait' -WindowStyle Hidden -ErrorAction SilentlyContinue
         }
 

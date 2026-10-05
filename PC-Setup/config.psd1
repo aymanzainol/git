@@ -45,25 +45,26 @@
         @{ Name = 'Foxit PDF Reader';   WingetId = 'Foxit.FoxitReader'; Scope = 'machine' }
         @{ Name = 'WinRAR';             WingetId = 'RARLab.WinRAR';     Scope = 'machine' }
 
-        # Office from the installer in installers\Office. Run Prepare-Office.cmd once to put
-        # setup.exe + the Office files there (edition/language in configuration.xml).
-        # Using your own installer instead, e.g. OfficeSetup.exe from portal.office.com?
-        #   Installer = 'installers\Office\OfficeSetup.exe'; Arguments = ''
+        # Office from OfficeSetup.exe (from the Office portal) in installers\Office\.
+        # It runs on its own and stays open at the end, so the script just waits for Word to appear.
+        # Using Prepare-Office.cmd instead? Set Installer = 'installers\Office\setup.exe',
+        # Arguments = '/configure "{KIT}\installers\Office\configuration.xml"' and remove NoWait.
         @{
             Name        = 'Microsoft 365 Apps'
-            Installer   = 'installers\Office\setup.exe'
-            Arguments   = '/configure "{KIT}\installers\Office\configuration.xml"'
+            Installer   = 'installers\Office\OfficeSetup.exe'
+            Arguments   = ''
+            NoWait      = $true
             Detect      = @{ Path = '%ProgramFiles%\Microsoft Office\root\Office16\WINWORD.EXE' }
-            WaitMinutes = 60     # some Office installers return before Office is fully installed
+            WaitMinutes = 60
         }
 
-        # Keyloop KCML KClient: put its setup.exe in installers\Keyloop\ (any name).
+        # Keyloop KCML KClient: its setup.exe in installers\Keyloop\.
         # It has no silent mode, so CLICKTHROUGH presses Next / Install / Finish in its wizard,
         # keeping the defaults. To tick options on the way, list them, e.g.
         #   Check = @("Add to 'Start Menu'", 'Add desktop items')
         @{
             Name        = 'Keyloop KCML KClient'
-            Installer   = 'installers\Keyloop\*'
+            Installer   = 'installers\Keyloop\setup.exe'
             Arguments   = 'CLICKTHROUGH'
             Check       = @()
             Detect      = @{ DisplayName = '*KClient*' }
@@ -82,12 +83,12 @@
             AnyDeskPassword = 'CHANGE-ME'      # unattended-access password
         }
 
-        # Put the Falcon sensor installer in installers\CrowdStrike\ (any name, e.g.
-        # FalconSensor_Windows.exe) and a text file starting with CID that contains your CID
-        # with checksum (Falcon console > Host setup > Sensor downloads).
+        # Falcon sensor in installers\CrowdStrike\. CID={CID} reads the CID (with checksum) from
+        # the CID text file next to it; or write the CID itself, e.g. CID=0123...ABCD-12.
+        # A newer sensor with another name: change Installer, or use 'installers\CrowdStrike\*'.
         @{
             Name      = 'CrowdStrike Falcon Sensor'
-            Installer = 'installers\CrowdStrike\*'
+            Installer = 'installers\CrowdStrike\FalconSensor_Windows 04-27-2026.exe'
             Arguments = '/install /quiet /norestart CID={CID}'
             CidFile   = 'installers\CrowdStrike\CID*'
             Detect    = @{ Service = 'CSFalconService' }
