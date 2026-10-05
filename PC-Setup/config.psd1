@@ -32,6 +32,7 @@
     #              {KIT} in Arguments = the folder this kit runs from
     #  Detect    : how to tell it's already installed, so re-runs skip it
     #  WaitMinutes : keep checking Detect this long after the installer exits
+    #  NoWait    : don't wait for the installer to exit, just for Detect (needs Detect + WaitMinutes)
     #              Service = '<service name>' | Path = '<file or folder>' | DisplayName = '<Programs and Features name, wildcards ok>'
     Apps = @(
         @{ Name = 'Google Chrome';      WingetId = 'Google.Chrome';     Scope = 'machine' }
@@ -57,6 +58,18 @@
             Installer = 'installers\Keyloop\CHANGE-ME.exe'
             Arguments = ''
             Detect    = @{ DisplayName = '*Keyloop*' }
+        }
+
+        # AnyDesk from anydesk.com (signature checked), starts with Windows.
+        @{
+            Name            = 'AnyDesk'
+            DownloadUrl     = 'https://download.anydesk.com/AnyDesk.exe'
+            Signer          = 'AnyDesk Software GmbH'
+            Arguments       = '--install "C:\Program Files (x86)\AnyDesk" --start-with-win --silent --create-shortcuts --create-desktop-icon'
+            Detect          = @{ Path = '%ProgramFiles(x86)%\AnyDesk\AnyDesk.exe' }
+            NoWait          = $true            # its installer keeps running in the background
+            WaitMinutes     = 3
+            AnyDeskPassword = 'CHANGE-ME'      # unattended-access password
         }
 
         # Copy WindowsSensor.exe (Falcon console > Host setup > Sensor downloads)

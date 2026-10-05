@@ -4,7 +4,7 @@ Automates the help-desk build of a new company PC:
 
 1. **Windows Update**: installs everything, restarts, checks again, and repeats until nothing is left.
 2. **Microsoft Store and app updates**: starts a Store update scan, then runs `winget upgrade --all`.
-3. **Company programs**, in this order: Google Chrome, Foxit PDF Reader, WinRAR, Microsoft 365 Apps, Keyloop Drive, CrowdStrike Falcon Sensor.
+3. **Company programs**, in this order: Google Chrome, Foxit PDF Reader, WinRAR, Microsoft 365 Apps, Keyloop Drive, AnyDesk (with the unattended-access password), CrowdStrike Falcon Sensor. The final summary shows each PC's AnyDesk ID.
 4. **Domain join**, renaming the PC at the same time if you gave it a new name.
 5. **First sign-in as the user**: after the final restart, the PC signs in once as the domain user it's for, then opens classic Outlook and OneDrive with their account.
 
@@ -18,6 +18,7 @@ Copy this `PC-Setup` folder to a USB stick (or a network share), then:
    - `DomainName`, plus `OUPath` if new PCs go into a specific OU.
    - The Keyloop Drive installer's file name and silent switches.
    - Your CrowdStrike **CID**, in `CID=...`.
+   - The AnyDesk unattended-access password, in `AnyDeskPassword`. `config.psd1` on the USB stick holds it in plain text. On the PC it sits in an admin-only folder and is deleted at the first sign-in.
 2. **Office**: double-click **`Prepare-Office.cmd`** once, on any PC with internet. It puts the Office installer and files (about 4 GB) in `installers\Office`, so new PCs install Office from the USB stick instead of downloading it. Edition and language are set in `installers\Office\configuration.xml`. If you'd rather use your own installer, such as `OfficeSetup.exe`, put it in `installers\Office` and change the Microsoft 365 entry in `config.psd1`.
 3. **`installers\CrowdStrike\`**: put `WindowsSensor.exe` here. Download it from Falcon console → Host setup and management → Sensor downloads.
 4. **`installers\Keyloop\`**: put the Keyloop Drive installer here.

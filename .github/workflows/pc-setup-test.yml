@@ -27,7 +27,7 @@ jobs:
         run: |
           # The runner image ships big developer tools a company PC won't have - don't spend the run updating them.
           $cfg = 'PC-Setup\config.psd1'
-          (Get-Content $cfg) -replace 'UpgradeExclude\s*=\s*@\(\)', "UpgradeExclude = @('Microsoft.VisualStudio*','LLVM.*','Microsoft.VCRedist.*','ShiningLight.*','sbt.*','JRSoftware.*','ImageMagick.*')" | Set-Content $cfg
+          (Get-Content $cfg) -replace 'UpgradeExclude\s*=\s*@\(\)', "UpgradeExclude = @('Microsoft.VisualStudio*','LLVM.*','Microsoft.VCRedist.*','ShiningLight.*','sbt.*','JRSoftware.*','ImageMagick.*')" -replace "AnyDeskPassword = 'CHANGE-ME'", "AnyDeskPassword = 'Ci-Test.Pass123'" | Set-Content $cfg
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File PC-Setup\Setup-NewPC.ps1 -SkipWindowsUpdate -Unattended
           $code = $LASTEXITCODE
           "Script exit code: $code"
@@ -42,10 +42,15 @@ jobs:
             'Foxit Reader'  = { [bool](Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' -EA SilentlyContinue | ? DisplayName -like 'Foxit PDF Reader*') }
             'WinRAR'        = { Test-Path "$env:ProgramFiles\WinRAR\WinRAR.exe" }
             'Microsoft 365' = { Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE" }
+            'AnyDesk'       = { Test-Path "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe" }
+            'AnyDesk service' = { [bool](Get-Service AnyDesk -EA SilentlyContinue) }
+            'AnyDesk password + ID in summary' = { [bool](Select-String -Path C:\ProgramData\PCSetup\setup.log -Pattern 'AnyDesk: .*unattended password set, ID \d+' -Quiet) }
             'Resume task removed' = { -not (Get-ScheduledTask -TaskName 'PCSetup-Resume' -EA SilentlyContinue) }
           }
           $fail = $false
           foreach ($k in $checks.Keys) { $ok = & $checks[$k]; "{0,-22} {1}" -f $k, $(if ($ok) {'OK'} else {'MISSING'}); if (-not $ok) { $fail = $true } }
+          # Which settings AnyDesk wrote (names only, never values)
+          if (Test-Path C:\ProgramData\AnyDesk\service.conf) { Get-Content C:\ProgramData\AnyDesk\service.conf | ForEach-Object { ($_ -split '=')[0] } | Where-Object { $_ -match 'pwd|password|security' } }
           if ($fail) { exit 1 }
 
       - name: Upload logs

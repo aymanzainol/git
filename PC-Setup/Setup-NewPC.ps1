@@ -547,11 +547,55 @@ function Install-FileApp($App) {
     }
     $arguments = $arguments.Replace('{KIT}', $KitDir)
     Write-Log "Running $([IO.Path]::GetFileName($path)) $($arguments -replace 'CID=\S+', 'CID=***')"
-    $start = @{ FilePath = $file; Wait = $true; PassThru = $true }
+    $start = @{ FilePath = $file; Wait = -not $App.NoWait; PassThru = $true }
     if ($arguments) { $start.ArgumentList = $arguments }
     $p = Start-Process @start
+    if ($App.NoWait) { return 'Installed' }   # finished when Detect finds it
     if ($p.ExitCode -in $InstallerOk) { return 'Installed' }
     throw "installer exit code $($p.ExitCode)"
+}
+
+function Invoke-Exe([string]$File, [string]$Arguments, [string]$StdIn) {
+    # Runs a program with optional input piped in; returns its output.
+    $p = New-Object Diagnostics.Process
+    $p.StartInfo.FileName = $File
+    $p.StartInfo.Arguments = $Arguments
+    $p.StartInfo.UseShellExecute = $false
+    $p.StartInfo.RedirectStandardInput = $true
+    $p.StartInfo.RedirectStandardOutput = $true
+    [void]$p.Start()
+    if ($StdIn) { $p.StandardInput.WriteLine($StdIn) }
+    $p.StandardInput.Close()
+    $out = $p.StandardOutput.ReadToEndAsync()
+    if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch { }; throw "$([IO.Path]::GetFileName($File)) $Arguments did not finish" }
+    $out.Result.Trim()
+}
+
+function Set-AnyDesk($App) {
+    # Sets the unattended-access password and returns ", ID <id>" for the summary.
+    $exe = [Environment]::ExpandEnvironmentVariables($App.Detect.Path)
+    if (Test-NotConfigured $App.AnyDeskPassword) {
+        Write-Log 'AnyDesk unattended password is not set in config.psd1 (CHANGE-ME) - skipped.' 'Warn'
+        $extra = ', no unattended password (not configured)'
+    } else {
+        # The service has to be running before it accepts a password.
+        for ($i = 0; $i -lt 12 -and -not (Get-Service -Name AnyDesk -ErrorAction SilentlyContinue | Where-Object Status -eq 'Running'); $i++) { Start-Sleep -Seconds 5 }
+        try {
+            Invoke-Exe $exe '--set-password' $App.AnyDeskPassword | Out-Null
+            Write-Log 'AnyDesk unattended password set.' 'Ok'
+            $extra = ', unattended password set'
+        } catch {
+            Write-Log "Couldn't set the AnyDesk password: $($_.Exception.Message)" 'Error'
+            $extra = ', unattended password NOT set'
+        }
+    }
+    $id = ''
+    for ($i = 0; $i -lt 6 -and $id -notmatch '^\d+$'; $i++) {
+        try { $id = Invoke-Exe $exe '--get-id' } catch { }
+        if ($id -notmatch '^\d+$') { Start-Sleep -Seconds 5 }
+    }
+    if ($id -match '^\d+$') { Write-Log "AnyDesk ID: $id" 'Ok'; $extra += ", ID $id" }
+    $extra
 }
 
 function Invoke-AppsStage($State, $Config) {
@@ -570,6 +614,7 @@ function Invoke-AppsStage($State, $Config) {
                 $result = Install-FileApp $app
                 if ($app.Detect -and -not (Wait-AppInstalled $app)) { throw 'installer finished but the program was not found afterwards' }
             }
+            if ($app.AnyDeskPassword -and $result -notlike 'Skipped*') { $result += Set-AnyDesk $app }
             Write-Log "$($app.Name): $result" $(if ($skip -and $result -like 'Skipped*') { 'Warn' } else { 'Ok' })
         } catch {
             $result = "FAILED - $($_.Exception.Message)"
@@ -865,8 +910,8 @@ function Invoke-FirstLogonCleanup {
         Write-Log "Couldn't start the device registration task: $($_.Exception.Message)" 'Warn'
     }
     Unregister-ScheduledTask -TaskName $CleanupTaskName -Confirm:$false -ErrorAction SilentlyContinue
-    Remove-Item (Join-Path $KitDir 'installers') -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Log 'First sign-in done: automatic sign-in is off, the saved password and the installer copies are removed.' 'Ok'
+    Remove-Item (Join-Path $KitDir 'installers'), (Join-Path $KitDir 'config.psd1') -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log 'First sign-in done: automatic sign-in is off, the saved password, the installer copies and config.psd1 are removed.' 'Ok'
 }
 
 #endregion
