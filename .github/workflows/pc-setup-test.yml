@@ -256,7 +256,7 @@ jobs:
             }
           }
 
-          Get-Content $LogFile | Select-String 'clicked|installer|switches'
+          Get-Content $LogFile | Select-String 'clicked|installer|switches|window|error'
 
           # CrowdStrike folder exactly like the help desk's
           $cs = "$KitDir\installers\CrowdStrike"; New-Item -ItemType Directory $cs -Force | Out-Null

@@ -647,7 +647,7 @@ $ClickButtons = '^(Next|I Agree|I Accept|Accept|Install|Finish|Close|OK)\b'
 # Runs in a background runspace so a hung UI Automation call can never freeze setup.
 $ClickWatcher = {
     param($ProcessId, $ButtonPattern, $Check, $Sync)
-    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
     function Get-Tree([int]$RootId) {
         $all = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId)
         $ids = @($RootId)
@@ -657,6 +657,7 @@ $ClickWatcher = {
     $A = [Windows.Automation.AutomationElement]
     $buttonCond = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
     $checkCond  = New-Object Windows.Automation.PropertyCondition($A::ControlTypeProperty, [Windows.Automation.ControlType]::CheckBox)
+    $seen = @{}   # what has been reported already, so each window/error is logged once
     while (-not $Sync.Stop) {
         Start-Sleep -Milliseconds 1500
         try {
@@ -666,26 +667,40 @@ $ClickWatcher = {
             $Sync.Polls++
             if ($windows) { $Sync.SawWindow = $true }
             foreach ($w in $windows) {
+                $buttons = @($w.FindAll([Windows.Automation.TreeScope]::Descendants, $buttonCond))
+                $desc = "window '$($w.Current.Name)': buttons " + (($buttons | ForEach-Object { "'$($_.Current.Name)'$(if (-not $_.Current.IsEnabled) { '(off)' })" }) -join ', ')
+                if (-not $seen[$desc]) { $seen[$desc] = $true; $Sync.Messages.Enqueue($desc) }
                 foreach ($cb in $w.FindAll([Windows.Automation.TreeScope]::Descendants, $checkCond)) {
                     if ($Check -and ($Check | Where-Object { $cb.Current.Name -like $_ })) {
                         $toggle = $cb.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
                         if ($toggle.Current.ToggleState -eq 'Off') { $toggle.Toggle(); $Sync.Messages.Enqueue("ticked '$($cb.Current.Name)'") }
                     }
                 }
-                $button = $w.FindAll([Windows.Automation.TreeScope]::Descendants, $buttonCond) |
+                $button = $buttons |
                     Where-Object { $_.Current.IsEnabled -and ($_.Current.Name -replace '&', '') -match $ButtonPattern -and
                                    $_.Current.AutomationId -notin 'Close', 'Minimize', 'Maximize', 'Restore' } |   # title-bar buttons
                     Select-Object -First 1
                 if ($button) {
                     $name = $button.Current.Name -replace '&', ''
-                    $button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+                    $invoke = $null
+                    if ($button.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
+                        $invoke.Invoke()
+                    } else {
+                        # Some installers draw buttons that don't support Invoke: focus it and press Enter.
+                        $button.SetFocus()
+                        [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+                    }
                     $Sync.Messages.Enqueue("clicked '$name'")
                     $Sync.LastClick = Get-Date
                     Start-Sleep -Seconds 2
                     break
                 }
             }
-        } catch { }   # windows come and go while the wizard moves on
+        } catch {
+            # Windows come and go while the wizard moves on; report each kind of error once.
+            $err = "error: $($_.Exception.Message)"
+            if (-not $seen[$err]) { $seen[$err] = $true; $Sync.Messages.Enqueue($err) }
+        }
     }
 }
 
