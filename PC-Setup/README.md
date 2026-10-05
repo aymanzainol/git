@@ -2,11 +2,12 @@
 
 Automates the help-desk build of a new company PC:
 
-1. **Windows Update**: installs everything, restarts, checks again, and repeats until nothing is left.
-2. **Microsoft Store and app updates**: starts a Store update scan, then runs `winget upgrade --all`.
-3. **Company programs**, in this order: Google Chrome, Foxit PDF Reader, WinRAR, Microsoft 365 Apps, Keyloop Drive, AnyDesk (with the unattended-access password), CrowdStrike Falcon Sensor. The final summary shows each PC's AnyDesk ID.
-4. **Domain join**, renaming the PC at the same time if you gave it a new name.
-5. **First sign-in as the user**: after the final restart, the PC signs in once as the domain user it's for, then opens classic Outlook and OneDrive with their account.
+1. **Time zone and keyboard**: sets Riyadh time (Arab Standard Time) and adds the Arabic (Saudi Arabia) keyboard next to English, for every user. Win+Space switches between them.
+2. **Windows Update**: installs everything, restarts, checks again, and repeats until nothing is left.
+3. **Microsoft Store and app updates**: starts a Store update scan, then runs `winget upgrade --all`.
+4. **Company programs**, in this order: Google Chrome, Foxit PDF Reader, WinRAR, Microsoft 365 Apps, Keyloop Drive, AnyDesk (with the unattended-access password), CrowdStrike Falcon Sensor. The final summary shows each PC's AnyDesk ID.
+5. **Domain join**, renaming the PC at the same time if you gave it a new name.
+6. **First sign-in as the user**: after the final restart, the PC signs in once as the domain user it's for, then opens classic Outlook and OneDrive with their account.
 
 You answer a few questions at the start: the PC name, the domain, and an account that can join PCs to the domain. After that it runs on its own.
 

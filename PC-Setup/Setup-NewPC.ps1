@@ -52,7 +52,7 @@ $FirstLogonTaskName = 'PCSetup-FirstLogon'
 $CleanupTaskName = 'PCSetup-FirstLogonCleanup'
 $LogFile   = Join-Path $WorkDir 'setup.log'
 $TaskName  = 'PCSetup-Resume'
-$Stages    = @('WindowsUpdate', 'StoreUpdates', 'Apps', 'DomainJoin', 'UserSetup', 'Done')
+$Stages    = @('Regional', 'WindowsUpdate', 'StoreUpdates', 'Apps', 'DomainJoin', 'UserSetup', 'Done')
 
 # winget exit codes that still mean "fine"
 $WingetOk = @(
@@ -84,7 +84,7 @@ function Test-NotConfigured([string]$Value) { $Value -match 'CHANGE-ME' }
 
 function New-State {
     @{
-        Stage             = 'WindowsUpdate'
+        Stage             = 'Regional'
         UpdateRound       = 0
         ComputerName      = $null
         UserName          = $null
@@ -342,6 +342,60 @@ function Get-WuResultText($Result) {
     if ($hr) { $text += ' (0x{0:X8})' -f $hr }
     $text
 }
+
+function Add-PreloadLayout([string]$Key, [string[]]$Layouts) {
+    # Adds keyboard layouts to a Keyboard Layout\Preload key (1 = default, 2, 3... = others).
+    $existing = @()
+    $props = Get-ItemProperty -Path "Registry::$Key" -ErrorAction SilentlyContinue
+    if ($props) { $existing = @($props.PSObject.Properties | Where-Object { $_.Name -match '^\d+$' } | Sort-Object { [int]$_.Name } | ForEach-Object { $_.Value }) }
+    foreach ($layout in $Layouts) { if ($existing -notcontains $layout) { $existing += $layout } }
+    for ($i = 0; $i -lt $existing.Count; $i++) {
+        reg.exe add $Key /v ($i + 1) /t REG_SZ /d $existing[$i] /f | Out-Null
+    }
+}
+
+function Invoke-RegionalStage($State, $Config) {
+    Write-Log 'Time zone and keyboard' 'Step'
+    try {
+        if ($Config.TimeZone) {
+            # Stop Windows changing it back automatically.
+            reg.exe add 'HKLM\SYSTEM\CurrentControlSet\Services\tzautoupdate' /v Start /t REG_DWORD /d 4 /f | Out-Null
+            Set-TimeZone -Id $Config.TimeZone
+            Write-Log "Time zone: $((Get-TimeZone).DisplayName)" 'Ok'
+            Start-Process w32tm.exe -ArgumentList '/resync /nowait' -WindowStyle Hidden -ErrorAction SilentlyContinue
+        }
+
+        $langs = @($Config.Keyboards)
+        if ($langs) {
+            # This (setup) account
+            $list = Get-WinUserLanguageList
+            foreach ($tag in $langs) { if (-not ($list | Where-Object { $_.LanguageTag -eq $tag })) { $list.Add($tag) } }
+            Set-WinUserLanguageList -LanguageList $list -Force -WarningAction SilentlyContinue
+
+            # Everyone who signs in later (and the sign-in screen)
+            $copied = $false
+            if (Get-Command Copy-UserInternationalSettingsToSystem -ErrorAction SilentlyContinue) {
+                try { Copy-UserInternationalSettingsToSystem -WelcomeScreen $true -NewUser $true; $copied = $true } catch { }
+            }
+            $layouts = @($langs | ForEach-Object { $KeyboardLayouts[$_] } | Where-Object { $_ })
+            Add-PreloadLayout 'HKU\.DEFAULT\Keyboard Layout\Preload' $layouts
+            $hive = Join-Path $env:SystemDrive 'Users\Default\NTUSER.DAT'
+            reg.exe load 'HKU\PCSetupDefault' $hive | Out-Null
+            if (-not $LASTEXITCODE) {
+                try { Add-PreloadLayout 'HKU\PCSetupDefault\Keyboard Layout\Preload' $layouts }
+                finally { [GC]::Collect(); reg.exe unload 'HKU\PCSetupDefault' | Out-Null }
+            }
+            Write-Log "Keyboards: $((Get-WinUserLanguageList | ForEach-Object { $_.Autonym }) -join ', ') (also for new users$(if ($copied) { ' and the sign-in screen' }))" 'Ok'
+        }
+        Add-Result $State 'Time zone / keyboard' "$((Get-TimeZone).Id); keyboards $($langs -join ', ')"
+    } catch {
+        Write-Log "Time zone / keyboard: $($_.Exception.Message)" 'Error'
+        Add-Result $State 'Time zone / keyboard' "FAILED - $($_.Exception.Message)"
+    }
+}
+
+# Language tag -> keyboard layout ID for the Preload list of new profiles.
+$KeyboardLayouts = @{ 'en-US' = '00000409'; 'ar-SA' = '00000401'; 'en-GB' = '00000809'; 'fr-FR' = '0000040c' }
 
 function Invoke-WindowsUpdateStage($State, $Config) {
     if ($State.SkipWindowsUpdate) { Add-Result $State 'Windows Update' 'Skipped'; return }
@@ -1179,6 +1233,7 @@ try {
 
     while ($state.Stage -ne 'Done') {
         switch ($state.Stage) {
+            'Regional'      { Invoke-RegionalStage      $state $config }
             'WindowsUpdate' { Invoke-WindowsUpdateStage $state $config }
             'StoreUpdates'  { Invoke-StoreUpdateStage   $state $config }
             'Apps'          { Invoke-AppsStage          $state $config }

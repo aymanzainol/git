@@ -45,6 +45,9 @@ jobs:
             'AnyDesk'       = { Test-Path "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe" }
             'AnyDesk service' = { [bool](Get-Service AnyDesk -EA SilentlyContinue) }
             'AnyDesk password + ID in summary' = { [bool](Select-String -Path C:\ProgramData\PCSetup\setup.log -Pattern 'AnyDesk: .*unattended password set, ID \d+' -Quiet) }
+            'Time zone Riyadh' = { (Get-TimeZone).Id -eq 'Arab Standard Time' }
+            'Arabic (Saudi) keyboard' = { [bool](Get-WinUserLanguageList | Where-Object LanguageTag -eq 'ar-SA') }
+            'Arabic keyboard for new users' = { reg.exe load HKU\T "$env:SystemDrive\Users\Default\NTUSER.DAT" | Out-Null; $p = Get-ItemProperty 'Registry::HKEY_USERS\T\Keyboard Layout\Preload' -EA SilentlyContinue; $ok = [bool]($p.PSObject.Properties | Where-Object Value -eq '00000401'); [GC]::Collect(); reg.exe unload HKU\T | Out-Null; $ok }
             'Resume task removed' = { -not (Get-ScheduledTask -TaskName 'PCSetup-Resume' -EA SilentlyContinue) }
           }
           $fail = $false

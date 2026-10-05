@@ -10,6 +10,10 @@
     OUPath             = ''                  # e.g. 'OU=Workstations,DC=corp,DC=company,DC=com' (blank = default Computers container)
     AskForComputerName = $true               # ask for a new PC name at the start (renamed during the domain join)
 
+    # --- Time zone and keyboards -----------------------------------------
+    TimeZone  = 'Arab Standard Time'         # Riyadh (UTC+3). List others with: Get-TimeZone -ListAvailable
+    Keyboards = @('en-US', 'ar-SA')          # English (US) + Arabic (Saudi Arabia), for every user
+
     # --- First sign-in (after the domain join) ----------------------------
     AskForUser          = $true              # ask for the domain user + password; the PC signs in as them once after setup
     OneDriveTenantId    = ''                 # Microsoft 365 tenant ID - also moves Desktop/Documents/Pictures into OneDrive (blank = off)
