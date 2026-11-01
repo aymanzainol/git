@@ -26,3 +26,9 @@ When adding an order, the **📷 Scan** button opens the camera; Claude reads th
 invoice number (and the invoice date, name, mobile and book number when they are written on it).
 Each order also records an **invoice date** (defaults to today) and a **cleared date** (filled in automatically
 when the order is marked Delivered).
+
+## Report page
+The **Report** tab (link ending `#report`) shows progress by day, week (starting Sunday) or month:
+new orders (by invoice date), thobes marked ready, orders delivered (by cleared date) and the average
+number of days from invoice to delivery. A chart and table compare the last 7 days / 8 weeks / 6 months,
+and a "Right now" panel shows orders in progress, waiting for pickup and overdue (past their due date).

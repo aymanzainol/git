@@ -11,6 +11,7 @@
     --ready: #12723a; --ready-bg: #e1f4e7;
     --done: #4a5560; --done-bg: #eaedf0;
     --danger: #a8231c; --wa: #178a47; --toast: #1c2321; --toast-ink: #ffffff;
+    --s-new: #1a6fb3; --s-del: #c7861a; --sel: rgba(26,111,179,.08); --late-bg: #fbe4e2;
     --f-body: "Noto Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
     --f-display: "Noto Kufi Arabic", "Noto Sans Arabic", system-ui, sans-serif;
   }
@@ -18,14 +19,14 @@
     --bg: #111614; --card: #1a201e; --ink: #e8ece9; --muted: #98a29d; --line: #2b3431;
     --brand: #2b86c9; --navy: #172146; --chip: rgba(255,255,255,.12);
     --pending: #f0b04a; --pending-bg: #382a11; --ready: #62d18c; --ready-bg: #15311f;
-    --done: #b3bdc6; --done-bg: #252c32; --danger: #ff8f85; --wa: #1f9d55; --toast: #e8ece9; --toast-ink: #111614;
+    --done: #b3bdc6; --done-bg: #252c32; --danger: #ff8f85; --s-new: #3d8ad4; --s-del: #b97a18; --sel: rgba(61,138,212,.12); --late-bg: #3a1a18; --wa: #1f9d55; --toast: #e8ece9; --toast-ink: #111614;
     color-scheme: dark;
   } }
   :root[data-theme="dark"] {
     --bg: #111614; --card: #1a201e; --ink: #e8ece9; --muted: #98a29d; --line: #2b3431;
     --brand: #2b86c9; --navy: #172146; --chip: rgba(255,255,255,.12);
     --pending: #f0b04a; --pending-bg: #382a11; --ready: #62d18c; --ready-bg: #15311f;
-    --done: #b3bdc6; --done-bg: #252c32; --danger: #ff8f85; --wa: #1f9d55; --toast: #e8ece9; --toast-ink: #111614;
+    --done: #b3bdc6; --done-bg: #252c32; --danger: #ff8f85; --s-new: #3d8ad4; --s-del: #b97a18; --sel: rgba(61,138,212,.12); --late-bg: #3a1a18; --wa: #1f9d55; --toast: #e8ece9; --toast-ink: #111614;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -85,6 +86,56 @@
   input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
   .ltr { direction: ltr; }
   [dir=rtl] .ltr { text-align: right; }
+  .vorders { display: flex; flex-direction: column; gap: 12px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; }
+  .tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 8px; border-radius: 9px; cursor: pointer; }
+  .tabs button.on { background: var(--ink); color: var(--bg); }
+  .report { display: flex; flex-direction: column; gap: 12px; }
+  .rhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+  .seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; padding: 7px 14px; cursor: pointer; }
+  .seg button.on { background: var(--brand); color: var(--brand-ink); font-weight: 600; }
+  .pnav { display: flex; align-items: center; gap: 8px; }
+  .pnav b { min-width: 9em; text-align: center; font-variant-numeric: tabular-nums; }
+  .pnav .btn { padding: 4px 12px; font-size: 18px; line-height: 1.2; }
+  [dir=rtl] .pnav .btn { transform: scaleX(-1); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .kpi span { font-size: 13px; color: var(--muted); }
+  .kpi b { font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; position: relative; min-width: 0; }
+  .panel h3 { margin: 0; font-size: 16px; font-family: var(--f-display); }
+  .panel h4 { margin: 12px 0 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
+  .ptitle { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin-bottom: 6px; }
+  .legend { display: flex; gap: 12px; font-size: 13px; color: var(--muted); }
+  .legend > span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw-new { background: var(--s-new); } .sw-del { background: var(--s-del); }
+  .chart { width: 100%; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart text { fill: var(--muted); font-size: 11px; font-family: var(--f-body); }
+  .chart .val { fill: var(--ink); font-weight: 600; }
+  .chart .grid { stroke: var(--line); stroke-width: 1; }
+  .chart .base { stroke: var(--muted); stroke-width: 1; }
+  .chart .sel { fill: var(--sel); }
+  .chart .hit { fill: transparent; cursor: pointer; }
+  .tip { position: absolute; z-index: 3; pointer-events: none; background: var(--toast); color: var(--toast-ink); font-size: 13px; padding: 6px 10px; border-radius: 8px; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; margin-top: 10px; }
+  #rtable { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  #rtable th, #rtable td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--line); }
+  #rtable th { color: var(--muted); font-weight: 600; }
+  #rtable th:first-child, #rtable td:first-child { text-align: start; }
+  #rtable tr.cur td { font-weight: 700; }
+  .nowrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .now { border-radius: 10px; padding: 8px; text-align: center; display: flex; flex-direction: column; }
+  .now b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .now span { font-size: 12px; }
+  .now.pending { background: var(--pending-bg); color: var(--pending); }
+  .now.ready { background: var(--ready-bg); color: var(--ready); }
+  .now.late { background: var(--late-bg); color: var(--danger); }
+  .overdue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+  .overdue li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-block: 4px; }
+  .overdue li span { color: var(--muted); font-variant-numeric: tabular-nums; }
   .scanrow { display: flex; gap: 8px; }
   .scanrow input { flex: 1; min-width: 0; }
   .btn.scan { flex: none; background: var(--ready-bg); color: var(--ready); border-color: var(--ready); font-weight: 600; }
@@ -112,6 +163,51 @@
 
 <main class="gutter">
   <div class="note" id="note" hidden></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tabOrders" data-view="orders" data-t="tabOrders"></button>
+    <button role="tab" id="tabReport" data-view="report" data-t="tabReport"></button>
+  </nav>
+
+  <section id="viewReport" class="report" hidden>
+    <div class="rhead">
+      <div class="seg" role="group">
+        <button data-mode="day" id="mDay" data-t="day"></button>
+        <button data-mode="week" id="mWeek" data-t="week"></button>
+        <button data-mode="month" id="mMonth" data-t="month"></button>
+      </div>
+      <div class="pnav">
+        <button class="btn" id="pPrev" aria-label="Previous">‹</button>
+        <b id="pLabel"></b>
+        <button class="btn" id="pNext" aria-label="Next">›</button>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span data-t="kNew"></span><b id="kNew">0</b></div>
+      <div class="kpi"><span data-t="kReady"></span><b id="kReady">0</b></div>
+      <div class="kpi"><span data-t="kDelivered"></span><b id="kDelivered">0</b></div>
+      <div class="kpi"><span data-t="kAvg"></span><b id="kAvg">–</b></div>
+    </div>
+    <div class="panel">
+      <div class="ptitle"><h3 data-t="chartTitle"></h3>
+        <div class="legend"><span><i class="sw sw-new"></i><span data-t="legNew"></span></span><span><i class="sw sw-del"></i><span data-t="legDel"></span></span></div>
+      </div>
+      <div class="chart" id="chart"></div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="tablewrap"><table id="rtable"></table></div>
+    </div>
+    <div class="panel">
+      <h3 data-t="nowTitle"></h3>
+      <div class="nowrow">
+        <div class="now pending"><b id="nPending">0</b><span data-t="pending"></span></div>
+        <div class="now ready"><b id="nWaiting">0</b><span data-t="kWaiting"></span></div>
+        <div class="now late"><b id="nOverdue">0</b><span data-t="kOverdue"></span></div>
+      </div>
+      <h4 data-t="overdueTitle"></h4>
+      <ul class="overdue" id="overdueList"></ul>
+    </div>
+  </section>
+
+  <section id="viewOrders" class="vorders">
   <div class="stats">
     <button class="stat" data-filter="pending" id="stPending"><b id="cPending">0</b><span data-t="pending"></span></button>
     <button class="stat" data-filter="ready" id="stReady"><b id="cReady">0</b><span data-t="ready"></span></button>
@@ -119,6 +215,7 @@
   </div>
   <input class="search" id="search" type="search" autocomplete="off">
   <div class="list" id="list"></div>
+  </section>
 </main>
 
 <button class="fab" id="addBtn">+ New order</button>
@@ -209,7 +306,8 @@
 (() => {
   const I18N = {
     en: {
-      dir: "ltr", appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
+      dir: "ltr", tabOrders: "Orders", tabReport: "Report", day: "Daily", week: "Weekly", month: "Monthly", kNew: "New orders", kReady: "Thobes ready", kDelivered: "Delivered", kAvg: "Avg. days to deliver", daysU: "days", nowTitle: "Right now", kWaiting: "Waiting for pickup", kOverdue: "Overdue", chartTitle: "New orders and deliveries", legNew: "New orders", legDel: "Delivered", periodCol: "Period", overdueTitle: "Past their due date", noOverdue: "No overdue orders.", today: "Today", thisWeek: "This week", thisMonth: "This month", weekOf: "Week of", locale: "en-GB",
+      appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
       invDate: "Invoice date", clearedDate: "Cleared date", invDateShort: "Invoice date", clearedShort: "Cleared",
@@ -236,7 +334,8 @@
       msg: (o, shop) => `Hello ${o.name}, your thobe is ready for pickup.\nInvoice no: ${o.invoice}${o.book ? `\nBook no: ${o.book}` : ""}${shop ? `\n${shop}` : ""}\nThank you!`
     },
     ar: {
-      dir: "rtl", appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
+      dir: "rtl", tabOrders: "الطلبات", tabReport: "التقارير", day: "يومي", week: "أسبوعي", month: "شهري", kNew: "طلبات جديدة", kReady: "ثياب جاهزة", kDelivered: "تم تسليمها", kAvg: "متوسط أيام التسليم", daysU: "يوم", nowTitle: "الوضع الآن", kWaiting: "بانتظار الاستلام", kOverdue: "متأخرة", chartTitle: "الطلبات الجديدة والتسليم", legNew: "طلبات جديدة", legDel: "تم التسليم", periodCol: "الفترة", overdueTitle: "طلبات تجاوزت موعد التسليم", noOverdue: "لا توجد طلبات متأخرة.", today: "اليوم", thisWeek: "هذا الأسبوع", thisMonth: "هذا الشهر", weekOf: "أسبوع", locale: "ar-SA-u-ca-gregory-nu-latn",
+      appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
       invDate: "تاريخ الفاتورة", clearedDate: "تاريخ الإغلاق", invDateShort: "تاريخ الفاتورة", clearedShort: "أُغلق",
@@ -263,7 +362,8 @@
       msg: (o, shop) => `مرحباً ${o.name}، ثوبك جاهز للاستلام.\nرقم الفاتورة: ${o.invoice}${o.book ? `\nرقم الدفتر: ${o.book}` : ""}${shop ? `\n${shop}` : ""}\nشكراً لك!`
     },
     ur: {
-      dir: "rtl", appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
+      dir: "rtl", tabOrders: "آرڈر", tabReport: "رپورٹ", day: "روزانہ", week: "ہفتہ وار", month: "ماہانہ", kNew: "نئے آرڈر", kReady: "تیار تھوب", kDelivered: "دے دیے گئے", kAvg: "ڈیلیوری کے اوسط دن", daysU: "دن", nowTitle: "ابھی کی صورتحال", kWaiting: "وصولی کے منتظر", kOverdue: "تاخیر شدہ", chartTitle: "نئے آرڈر اور ڈیلیوری", legNew: "نئے آرڈر", legDel: "دے دیے گئے", periodCol: "مدت", overdueTitle: "تاریخ گزر چکے آرڈر", noOverdue: "کوئی آرڈر تاخیر میں نہیں۔", today: "آج", thisWeek: "اس ہفتے", thisMonth: "اس مہینے", weekOf: "ہفتہ", locale: "ur-PK-u-nu-latn",
+      appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
       invDate: "انوائس کی تاریخ", clearedDate: "کلیئر ہونے کی تاریخ", invDateShort: "انوائس تاریخ", clearedShort: "کلیئر",
@@ -417,7 +517,8 @@
     $("cReady").textContent = counts.ready;
     $("cDelivered").textContent = counts.delivered;
     document.querySelectorAll(".stat").forEach((s) => s.classList.toggle("on", s.dataset.filter === filter));
-    $("addBtn").hidden = readOnly || mode === "loading";
+    $("addBtn").hidden = readOnly || mode === "loading" || view === "report";
+    if (view === "report") renderReport();
 
     const list = $("list");
     if (mode === "loading" || (mode === "cloud" && !loaded && !orders.length)) {
@@ -468,7 +569,7 @@
     const act = el.dataset.act;
     if (act === "ready" || act === "delivered") {
       el.disabled = true;
-      const extra = act === "delivered" && !o.cleared ? { cleared: today() } : {};
+      const extra = act === "delivered" && !o.cleared ? { cleared: today() } : act === "ready" && !o.readyDate ? { readyDate: today() } : {};
       try { await saveOrder({ ...o, ...extra, status: act, updated: Date.now() }); if (act === "ready") toast(t("markedReady")); }
       catch (err) { el.disabled = false; writeFailed(err); }
     } else if (act === "copy") {
@@ -516,11 +617,144 @@
     if (orders.some((o) => o.invoice === data.invoice && o.id !== editingId)) { $("formErr").textContent = t("errDupInvoice"); return; }
     const prev = editingId ? orders.find((o) => o.id === editingId) : null;
     const o = { ...(prev || { id: newId(), created: Date.now() }), ...data, updated: Date.now() };
+    if (o.status === "ready" && !o.readyDate) o.readyDate = today();
     $("saveOrder").disabled = true;
     try { await saveOrder(o); $("orderDlg").close(); toast(t("saved")); }
     catch (err) { $("orderDlg").close(); writeFailed(err); }
     finally { $("saveOrder").disabled = false; }
   });
+
+  // ---------- report ----------
+  let view = "orders", rMode = "day", rOffset = 0;
+  const pad = (n) => String(n).padStart(2, "0");
+  const ymdOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parseYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const COUNT = { day: 7, week: 8, month: 6 };
+
+  function period(mode, offset) {
+    const a = new Date(); a.setHours(0, 0, 0, 0);
+    let start, end;
+    if (mode === "day") { start = new Date(a.getFullYear(), a.getMonth(), a.getDate() + offset); end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1); }
+    else if (mode === "week") { start = new Date(a.getFullYear(), a.getMonth(), a.getDate() - a.getDay() + 7 * offset); end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7); }
+    else { start = new Date(a.getFullYear(), a.getMonth() + offset, 1); end = new Date(start.getFullYear(), start.getMonth() + 1, 1); }
+    return { from: ymdOf(start), to: ymdOf(end), start, offset };
+  }
+  const fmt = (d, opts) => { try { return new Intl.DateTimeFormat(t("locale"), opts).format(d); } catch { return ymdOf(d); } };
+  function longLabel(p) {
+    if (rMode === "day") return (p.offset === 0 ? t("today") + " · " : "") + fmt(p.start, { weekday: "short", day: "numeric", month: "short" });
+    if (rMode === "week") return (p.offset === 0 ? t("thisWeek") : t("weekOf")) + " · " + fmt(p.start, { day: "numeric", month: "short" });
+    return fmt(p.start, { month: "long", year: "numeric" });
+  }
+  function shortLabel(p) {
+    if (rMode === "month") return fmt(p.start, { month: "short" });
+    return fmt(p.start, { day: "numeric", month: "numeric" });
+  }
+  const orderDate = (o) => o.invDate || (o.created ? ymdOf(new Date(o.created)) : "");
+  function stats(p) {
+    const inP = (s) => !!s && s >= p.from && s < p.to;
+    let n = 0, rd = 0, dl = 0, sum = 0, cnt = 0;
+    for (const o of orders) {
+      if (inP(orderDate(o))) n++;
+      if (inP(o.readyDate)) rd++;
+      if (inP(o.cleared)) {
+        dl++;
+        const od = orderDate(o);
+        if (od && od <= o.cleared) { sum += Math.round((parseYmd(o.cleared) - parseYmd(od)) / 86400000); cnt++; }
+      }
+    }
+    return { n, rd, dl, avg: cnt ? sum / cnt : null };
+  }
+
+  function barPath(x, y, w, h) {
+    if (h <= 0) return "";
+    const r = Math.min(4, h, w / 2);
+    return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+  }
+
+  let buckets = [];
+  function renderReport() {
+    document.querySelectorAll(".seg button").forEach((b) => b.classList.toggle("on", b.dataset.mode === rMode));
+    const cur = period(rMode, rOffset), s = stats(cur);
+    $("pLabel").textContent = longLabel(cur);
+    $("pNext").disabled = rOffset >= 0;
+    $("kNew").textContent = s.n; $("kReady").textContent = s.rd; $("kDelivered").textContent = s.dl;
+    $("kAvg").textContent = s.avg === null ? "–" : `${(Math.round(s.avg * 10) / 10)} ${t("daysU")}`;
+
+    // right now
+    const td = today();
+    const late = orders.filter((o) => o.status !== "delivered" && o.due && o.due < td).sort((a, b) => a.due.localeCompare(b.due));
+    $("nPending").textContent = orders.filter((o) => o.status === "pending").length;
+    $("nWaiting").textContent = orders.filter((o) => o.status === "ready").length;
+    $("nOverdue").textContent = late.length;
+    $("overdueList").innerHTML = late.length
+      ? late.slice(0, 30).map((o) => `<li><b>${esc(o.name)} · <bdi dir="ltr">${esc(o.invoice)}</bdi></b><span dir="ltr">${esc(o.due)}</span></li>`).join("")
+      : `<li><span>${esc(t("noOverdue"))}</span></li>`;
+
+    // chart buckets (oldest → newest, selected period last)
+    const n = COUNT[rMode];
+    buckets = [];
+    for (let i = n - 1; i >= 0; i--) { const p = period(rMode, rOffset - i); buckets.push({ p, s: stats(p) }); }
+
+    const box = $("chart");
+    const W = Math.max(280, box.clientWidth || 340), H = 190, L = 28, R = 6, T = 20, B = 24;
+    const pw = W - L - R, ph = H - T - B;
+    const maxV = Math.max(4, ...buckets.map((b) => Math.max(b.s.n, b.s.dl)));
+    const step = Math.ceil(maxV / 4), top = step * 4;
+    const y = (v) => T + ph - (v / top) * ph;
+    const gw = pw / n, bw = Math.max(4, Math.min(22, (gw - 12) / 2));
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(t("chartTitle"))}">`;
+    for (const v of [step * 2, top]) svg += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+    svg += `<text x="${L - 6}" y="${y(0) + 4}" text-anchor="end">0</text>`;
+    buckets.forEach((b, i) => {
+      const gx = L + i * gw, cx = gx + gw / 2, last = i === n - 1;
+      if (last) svg += `<rect class="sel" x="${gx + 1}" y="${T - 16}" width="${gw - 2}" height="${ph + 16}" rx="6"/>`;
+      const x1 = cx - bw - 1, x2 = cx + 1;
+      svg += `<path d="${barPath(x1, y(b.s.n), bw, y(0) - y(b.s.n))}" fill="var(--s-new)"/>`;
+      svg += `<path d="${barPath(x2, y(b.s.dl), bw, y(0) - y(b.s.dl))}" fill="var(--s-del)"/>`;
+      if (last) svg += `<text class="val" x="${x1 + bw / 2}" y="${y(b.s.n) - 4}" text-anchor="middle">${b.s.n}</text><text class="val" x="${x2 + bw / 2}" y="${y(b.s.dl) - 4}" text-anchor="middle">${b.s.dl}</text>`;
+      svg += `<text x="${cx}" y="${H - 6}" text-anchor="middle"${last ? ' class="val"' : ""}>${esc(shortLabel(b.p))}</text>`;
+      svg += `<rect class="hit" data-i="${i}" x="${gx}" y="0" width="${gw}" height="${H}"/>`;
+    });
+    svg += `<line class="base" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/></svg>`;
+    box.innerHTML = svg;
+    $("tip").hidden = true;
+
+    $("rtable").innerHTML = `<thead><tr><th>${esc(t("periodCol"))}</th><th>${esc(t("legNew"))}</th><th>${esc(t("kReady"))}</th><th>${esc(t("legDel"))}</th></tr></thead><tbody>` +
+      buckets.slice().reverse().map((b) => `<tr class="${b.p.offset === rOffset ? "cur" : ""}"><td>${esc(longLabel(b.p))}</td><td>${b.s.n}</td><td>${b.s.rd}</td><td>${b.s.dl}</td></tr>`).join("") + "</tbody>";
+  }
+
+  $("chart").addEventListener("pointermove", (e) => {
+    const hit = e.target.closest(".hit"); const tip = $("tip");
+    if (!hit) { tip.hidden = true; return; }
+    const b = buckets[+hit.dataset.i];
+    tip.innerHTML = `<b>${esc(longLabel(b.p))}</b><br>${esc(t("legNew"))}: ${b.s.n} · ${esc(t("legDel"))}: ${b.s.dl}`;
+    tip.hidden = false;
+    const pr = $("chart").parentElement.getBoundingClientRect();
+    const x = Math.min(Math.max(8, e.clientX - pr.left - tip.offsetWidth / 2), pr.width - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (e.clientY - pr.top - tip.offsetHeight - 14) + "px";
+  });
+  $("chart").addEventListener("pointerleave", () => { $("tip").hidden = true; });
+  $("chart").addEventListener("click", (e) => {
+    const hit = e.target.closest(".hit"); if (!hit) return;
+    rOffset = buckets[+hit.dataset.i].p.offset; renderReport();
+  });
+  document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => { rMode = b.dataset.mode; rOffset = 0; renderReport(); }));
+  $("pPrev").onclick = () => { rOffset--; renderReport(); };
+  $("pNext").onclick = () => { if (rOffset < 0) { rOffset++; renderReport(); } };
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (view === "report") renderReport(); }, 150); });
+
+  function setView(v) {
+    view = v === "report" ? "report" : "orders";
+    $("viewReport").hidden = view !== "report";
+    $("viewOrders").hidden = view === "report";
+    document.querySelectorAll(".tabs button").forEach((b) => { const on = b.dataset.view === view; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+    render();
+  }
+  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
+    const h = "#" + b.dataset.view;
+    if (location.hash !== h) location.hash = h; else setView(b.dataset.view);
+  }));
+  window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
 
   // ---------- scan invoice with the camera ----------
   async function shrink(file) {
@@ -615,13 +849,14 @@
         if (!o || !o.id || !o.name || !o.invoice) continue;
         await saveOrder({ id: String(o.id), name: String(o.name), mobile: String(o.mobile || ""), book: String(o.book || ""),
           invoice: String(o.invoice), status: ["pending", "ready", "delivered"].includes(o.status) ? o.status : "pending",
-          due: String(o.due || ""), notes: String(o.notes || ""), invDate: String(o.invDate || ""), cleared: String(o.cleared || ""), created: Number(o.created) || Date.now(), updated: Number(o.updated) || Date.now() });
+          due: String(o.due || ""), notes: String(o.notes || ""), invDate: String(o.invDate || ""), cleared: String(o.cleared || ""), readyDate: String(o.readyDate || ""), created: Number(o.created) || Date.now(), updated: Number(o.updated) || Date.now() });
       }
       toast(t("imported"));
     } catch (err) { writeFailed(err); }
   });
 
   applyLang();
+  setView(location.hash.slice(1));
   initCloud();
 })();
 </script>
