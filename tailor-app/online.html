@@ -184,6 +184,17 @@
   .overdue li span { color: var(--muted); font-variant-numeric: tabular-nums; }
   .loginlogo { display: block; width: 72px; height: 72px; border-radius: 16px; margin: 0 auto 8px; }
   .scanrow { display: flex; gap: 8px; }
+  .has-install .fab { bottom: calc(var(--install-h, 160px) + 8px); }
+  .install { position: fixed; inset: auto 0 0 0; z-index: 15; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+  .install-card { pointer-events: auto; max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; align-items: center; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: var(--shadow-lg); animation: rise .25s ease-out; }
+  .install-card img { border-radius: 12px; }
+  .itext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .itext b { font-size: 16px; }
+  .itext span { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .itext svg { display: inline-block; vertical-align: -3px; color: var(--brand); }
+  .iacts { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+  @keyframes rise { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .install-card { animation: none; } }
   .photoprev { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; color: var(--ready); }
   .photoprev img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
   .photodlg { width: min(720px, calc(100vw - 24px)); }
@@ -346,6 +357,7 @@
     <hr>
     <div class="hint" id="backupHint"></div>
     <div class="dlg-actions" style="justify-content:flex-start">
+      <button type="button" class="btn" id="installFromSettings" data-t="installSetting" hidden></button>
       <button type="button" class="btn" id="exportBtn" data-t="export"></button>
       <button type="button" class="btn" id="importBtn" data-t="import"></button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
@@ -378,6 +390,17 @@
   </form>
 </dialog>
 
+<div class="install gutter" id="installBar" role="dialog" aria-labelledby="installTitle" hidden>
+  <div class="install-card">
+    <img id="installIcon" alt="" width="52" height="52">
+    <div class="itext"><b id="installTitle" data-t="installTitle"></b><span id="installMsg"></span></div>
+    <div class="iacts">
+      <button type="button" class="btn" id="installLater" data-t="installLater"></button>
+      <button type="button" class="btn primary" id="installGo" data-t="installGo"></button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -388,6 +411,7 @@
       loginTitle: "Report password", password: "Password", loginBtn: "Open report", lock: "Lock", loginWrong: "That password is not correct.", loginTooMany: "Too many tries. Wait 15 minutes and try again.",
       photoAttached: "Invoice photo attached", viewPhoto: "Invoice photo", photoSaveErr: "The order was saved, but the photo could not be uploaded. Open Edit and take the photo again.",
       ocrLoading: "Getting the reader ready… (the first time takes longer)",
+      installTitle: "Add Salar to your home screen", installAndroid: "Open it like an app, full screen, with one tap.", installIos: "Tap {share} Share at the bottom of Safari, then {add} “Add to Home Screen”.", installGo: "Install", installLater: "Not now", installSetting: "Add to home screen",
       appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
@@ -419,6 +443,7 @@
       loginTitle: "كلمة مرور التقارير", password: "كلمة المرور", loginBtn: "فتح التقارير", lock: "قفل", loginWrong: "كلمة المرور غير صحيحة.", loginTooMany: "محاولات كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.",
       photoAttached: "تم إرفاق صورة الفاتورة", viewPhoto: "صورة الفاتورة", photoSaveErr: "تم حفظ الطلب لكن تعذّر رفع الصورة. افتح «تعديل» وصوّر الفاتورة مرة أخرى.",
       ocrLoading: "جارٍ تجهيز قارئ الصور… (أول مرة تستغرق وقتاً أطول)",
+      installTitle: "أضف سالار إلى الشاشة الرئيسية", installAndroid: "افتحه كتطبيق بملء الشاشة بلمسة واحدة.", installIos: "اضغط {share} مشاركة أسفل Safari، ثم {add} «إضافة إلى الشاشة الرئيسية».", installGo: "تثبيت", installLater: "ليس الآن", installSetting: "إضافة إلى الشاشة الرئيسية",
       appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
@@ -450,6 +475,7 @@
       loginTitle: "رپورٹ کا پاس ورڈ", password: "پاس ورڈ", loginBtn: "رپورٹ کھولیں", lock: "لاک", loginWrong: "پاس ورڈ درست نہیں ہے۔", loginTooMany: "بہت زیادہ کوششیں۔ 15 منٹ انتظار کر کے دوبارہ کوشش کریں۔",
       photoAttached: "انوائس کی تصویر لگا دی گئی", viewPhoto: "انوائس کی تصویر", photoSaveErr: "آرڈر محفوظ ہو گیا لیکن تصویر اپ لوڈ نہیں ہو سکی۔ «ترمیم» کھول کر دوبارہ تصویر لیں۔",
       ocrLoading: "ریڈر تیار ہو رہا ہے… (پہلی بار زیادہ وقت لگتا ہے)",
+      installTitle: "سالار کو ہوم اسکرین پر شامل کریں", installAndroid: "ایک ٹیپ سے ایپ کی طرح پوری اسکرین پر کھولیں۔", installIos: "Safari کے نیچے {share} شیئر دبائیں، پھر {add} «Add to Home Screen» منتخب کریں۔", installGo: "انسٹال کریں", installLater: "ابھی نہیں", installSetting: "ہوم اسکرین پر شامل کریں",
       appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
@@ -581,6 +607,7 @@
     mode = "server";
     await pullState();
     if (location.hash === "#report") setView("report");
+    setupInstall();
     startPolling();
     return true;
   }
@@ -1124,10 +1151,55 @@
     prefs.lang = b.dataset.lang; store(PKEY, prefs); applyLang();
   }));
 
+  // ---------- add to home screen ----------
+  const IKEY = "tailor-install-later";
+  let installPrompt = null;
+  const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const canInstall = () => mode === "server" && !isStandalone() && (!!installPrompt || isIOS());
+  const SHARE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>';
+  const ADD_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+  function showInstall(force) {
+    if (!canInstall()) return;
+    if (!force) { let until = 0; try { until = Number(localStorage.getItem(IKEY)) || 0; } catch {} if (until > Date.now()) return; }
+    const ios = !installPrompt;
+    if (!$("installIcon").src) $("installIcon").src = "icon-192.png";
+    $("installMsg").innerHTML = ios
+      ? esc(t("installIos")).replace("{share}", SHARE_ICON).replace("{add}", ADD_ICON)
+      : esc(t("installAndroid"));
+    $("installGo").hidden = ios;
+    $("installLater").textContent = ios ? t("done") : t("installLater");
+    $("installBar").hidden = false;
+    document.documentElement.style.setProperty("--install-h", $("installBar").offsetHeight + "px");
+    document.body.classList.add("has-install");
+  }
+  function hideInstall(remember) {
+    $("installBar").hidden = true;
+    document.body.classList.remove("has-install");
+    if (remember) { try { localStorage.setItem(IKEY, String(Date.now() + 14 * 864e5)); } catch {} }
+  }
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; refreshInstallEntry(); if (mode === "server") showInstall(false); });
+  window.addEventListener("appinstalled", () => { installPrompt = null; hideInstall(false); refreshInstallEntry(); });
+  $("installLater").onclick = () => hideInstall(true);
+  $("installGo").onclick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch {}
+    installPrompt = null; hideInstall(false); refreshInstallEntry();
+  };
+  function refreshInstallEntry() { $("installFromSettings").hidden = !canInstall(); }
+  $("installFromSettings").onclick = () => { $("settingsDlg").close(); showInstall(true); };
+  function setupInstall() {
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+    refreshInstallEntry();
+    setTimeout(() => showInstall(false), 1500);
+  }
+
   // ---------- settings & backup ----------
   $("settingsBtn").onclick = () => {
     $("sShop").value = shop.shop; $("sCode").value = shop.code; $("sMsgLang").value = prefs.msgLang;
     $("sShop").disabled = $("sCode").disabled = $("importBtn").disabled = readOnly;
+    refreshInstallEntry();
     $("settingsDlg").showModal();
   };
   $("settingsForm").addEventListener("submit", async (e) => {
