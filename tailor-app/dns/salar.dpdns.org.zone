@@ -1,10 +1,11 @@
 ; Zone records for salar.dpdns.org -> Salar Tailoring app on Railway
-; Import this file in your DNS dashboard (DigitalPlat / Cloudflare "Import zone file").
+; The app is served at www.salar.dpdns.org (DigitalPlat does not allow a CNAME on the bare domain).
+; Import this file in your DNS dashboard, or add the two records by hand.
 $ORIGIN salar.dpdns.org.
 $TTL 300
 
-; Send visitors to the Railway app
-@                 300  IN  CNAME  m7wm2pcy.up.railway.app.
+; Send visitors of www.salar.dpdns.org to the Railway app
+www                    300  IN  CNAME  0vn4s6e8.up.railway.app.
 
-; Proves to Railway that you own the domain
-_railway-verify   300  IN  TXT    "railway-verify=ac150b70ed41773679428feda3339c9839c54364f0ec6e9ca952a7d71878cdff"
+; Proves to Railway that you own www.salar.dpdns.org
+_railway-verify.www    300  IN  TXT    "railway-verify=1f44da462cb819a7e7c2ead1376a340540fa6f9f98608d435638fe1d1d193a41"
