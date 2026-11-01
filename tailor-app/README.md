@@ -12,3 +12,12 @@ A one-file mobile web app for a tailor shop to keep track of thobe orders.
 
 ## Use it
 Open `index.html` in the phone's browser, then use **Add to Home Screen** so it works like an app.
+
+## Online version (phone + computer, shared orders)
+`online.html` is the same app, published as a private claude.ai page:
+https://claude.ai/artifact/8Y6rM5AU4ZZBs73SoW3Cea
+
+Orders are kept in an online database, so every phone and computer that opens the link
+sees the same list and updates live. To let staff add or update orders, share the page
+with them as **Contributor** (Viewers cannot see customer data).
+If the database can't be reached, the page falls back to saving on the device.

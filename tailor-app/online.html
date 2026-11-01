@@ -1,0 +1,533 @@
+<title>Tailor Orders</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&family=Noto+Kufi+Arabic:wght@700&display=swap">
+<style>
+  /* Layout: a sticky shop band, a status ledger strip, then one column of order slips. */
+  :root {
+    --bg: #f3f1ec; --card: #ffffff; --ink: #1c2321; --muted: #66706b; --line: #dfdad0;
+    --brand: #0e5a4b; --brand-ink: #ffffff; --chip: rgba(255,255,255,.16);
+    --pending: #9a5b00; --pending-bg: #fdf0da;
+    --ready: #12723a; --ready-bg: #e1f4e7;
+    --done: #4a5560; --done-bg: #eaedf0;
+    --danger: #a8231c; --wa: #178a47; --toast: #1c2321; --toast-ink: #ffffff;
+    --f-body: "Noto Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+    --f-display: "Noto Kufi Arabic", "Noto Sans Arabic", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #111614; --card: #1a201e; --ink: #e8ece9; --muted: #98a29d; --line: #2b3431;
+    --brand: #13695a; --chip: rgba(255,255,255,.12);
+    --pending: #f0b04a; --pending-bg: #382a11; --ready: #62d18c; --ready-bg: #15311f;
+    --done: #b3bdc6; --done-bg: #252c32; --danger: #ff8f85; --wa: #1f9d55; --toast: #e8ece9; --toast-ink: #111614;
+    color-scheme: dark;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #111614; --card: #1a201e; --ink: #e8ece9; --muted: #98a29d; --line: #2b3431;
+    --brand: #13695a; --chip: rgba(255,255,255,.12);
+    --pending: #f0b04a; --pending-bg: #382a11; --ready: #62d18c; --ready-bg: #15311f;
+    --done: #b3bdc6; --done-bg: #252c32; --danger: #ff8f85; --wa: #1f9d55; --toast: #e8ece9; --toast-ink: #111614;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; padding-bottom: 104px; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--brand); }
+  .gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--brand); color: var(--brand-ink); padding-block: 10px; }
+  .bar { display: flex; align-items: center; gap: 8px; max-width: 760px; margin: 0 auto; }
+  .bar h1 { font-family: var(--f-display); font-size: 18px; margin: 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-wrap: balance; }
+  .langs { display: flex; background: var(--chip); border-radius: 10px; padding: 3px; }
+  .langs button { border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
+  .langs button.on { background: var(--brand-ink); color: var(--brand); font-weight: 700; }
+  .icon-btn { border: 0; background: var(--chip); color: inherit; border-radius: 10px; width: 38px; height: 38px; font-size: 18px; cursor: pointer; flex: none; }
+  main { max-width: 760px; margin: 0 auto; padding-block: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .note { font-size: 14px; color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 6px; text-align: center; cursor: pointer; font: inherit; color: inherit; }
+  .stat b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 13px; color: var(--muted); }
+  .stat.on { outline: 2px solid var(--brand); outline-offset: -1px; }
+  .stat[data-filter=pending] b { color: var(--pending); }
+  .stat[data-filter=ready] b { color: var(--ready); }
+  .stat[data-filter=delivered] b { color: var(--done); }
+  .search { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .order { background: var(--card); border: 1px solid var(--line); border-inline-start: 4px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+  .order.pending { border-inline-start-color: var(--pending); }
+  .order.ready { border-inline-start-color: var(--ready); }
+  .order-top { display: flex; align-items: flex-start; gap: 8px; }
+  .order-top .name { font-weight: 700; font-size: 17px; flex: 1; min-width: 0; word-break: break-word; }
+  .badge { font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.pending { color: var(--pending); background: var(--pending-bg); }
+  .badge.ready { color: var(--ready); background: var(--ready-bg); }
+  .badge.delivered { color: var(--done); background: var(--done-bg); }
+  .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2px 12px; margin: 6px 0 10px; font-size: 14px; color: var(--muted); }
+  .meta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meta .wide { grid-column: 1 / -1; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 10px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+  .btn:focus-visible, .stat:focus-visible, .langs button:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--ready); outline-offset: 2px; }
+  .btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  .btn.ready { background: var(--ready-bg); color: var(--ready); border-color: var(--ready); font-weight: 600; }
+  .btn.wa { background: var(--wa); color: #fff; border-color: var(--wa); }
+  .btn.danger { color: var(--danger); }
+  .btn[disabled] { opacity: .5; cursor: default; }
+  .empty { text-align: center; color: var(--muted); padding: 36px 10px; }
+  .fab { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); inset-inline-end: calc(20px + env(safe-area-inset-right, 0px)); z-index: 6; background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 999px; padding: 13px 22px; font: inherit; font-weight: 700; font-size: 17px; box-shadow: 0 6px 18px rgba(0,0,0,.25); cursor: pointer; }
+  dialog { border: 0; border-radius: 16px; padding: 0; width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--card); color: var(--ink); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .dlg { padding: 18px; }
+  .dlg h2 { margin: 0 0 8px; font-size: 19px; font-family: var(--f-display); }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+  .ltr { direction: ltr; }
+  [dir=rtl] .ltr { text-align: right; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  .err { color: var(--danger); font-size: 14px; min-height: 1.2em; margin-top: 6px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+  .toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--toast); color: var(--toast-ink); padding: 9px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; max-width: calc(100vw - 32px); }
+  .toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+
+<header class="gutter">
+  <div class="bar">
+    <h1 id="title">Tailor Orders</h1>
+    <div class="langs" role="group" aria-label="Language">
+      <button data-lang="ar" id="langAr">ع</button>
+      <button data-lang="en" id="langEn">EN</button>
+      <button data-lang="ur" id="langUr">اردو</button>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+  </div>
+</header>
+
+<main class="gutter">
+  <div class="note" id="note" hidden></div>
+  <div class="stats">
+    <button class="stat" data-filter="pending" id="stPending"><b id="cPending">0</b><span data-t="pending"></span></button>
+    <button class="stat" data-filter="ready" id="stReady"><b id="cReady">0</b><span data-t="ready"></span></button>
+    <button class="stat" data-filter="delivered" id="stDelivered"><b id="cDelivered">0</b><span data-t="delivered"></span></button>
+  </div>
+  <input class="search" id="search" type="search" autocomplete="off">
+  <div class="list" id="list"></div>
+</main>
+
+<button class="fab" id="addBtn">+ New order</button>
+
+<dialog id="orderDlg">
+  <form class="dlg" id="orderForm" novalidate>
+    <h2 id="orderDlgTitle"></h2>
+    <label for="fName" data-t="name"></label>
+    <input id="fName" autocomplete="off">
+    <label for="fMobile" data-t="mobile"></label>
+    <input id="fMobile" class="ltr" type="tel" inputmode="tel" autocomplete="off" placeholder="05xxxxxxxx">
+    <div class="row2">
+      <div><label for="fBook" data-t="book"></label><input id="fBook" class="ltr" inputmode="numeric" autocomplete="off"></div>
+      <div><label for="fInvoice" data-t="invoice"></label><input id="fInvoice" class="ltr" inputmode="numeric" autocomplete="off"></div>
+    </div>
+    <div class="row2">
+      <div><label for="fStatus" data-t="status"></label>
+        <select id="fStatus">
+          <option value="pending" data-t="pending"></option>
+          <option value="ready" data-t="ready"></option>
+          <option value="delivered" data-t="delivered"></option>
+        </select></div>
+      <div><label for="fDue" data-t="dueDate"></label><input id="fDue" type="date"></div>
+    </div>
+    <label for="fNotes" data-t="notes"></label>
+    <textarea id="fNotes" rows="2"></textarea>
+    <div class="err" id="formErr"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="cancelOrder" data-t="cancel"></button>
+      <button type="submit" class="btn primary" id="saveOrder" data-t="save"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirmDlg">
+  <div class="dlg">
+    <h2 data-t="confirmDel"></h2>
+    <p id="confirmWho" style="margin:0;color:var(--muted)"></p>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="confirmNo" data-t="cancel"></button>
+      <button type="button" class="btn danger" id="confirmYes" data-t="del"></button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="settingsDlg">
+  <form class="dlg" id="settingsForm">
+    <h2 data-t="settings"></h2>
+    <label for="sShop" data-t="shopName"></label>
+    <input id="sShop" autocomplete="off">
+    <label for="sCode" data-t="countryCode"></label>
+    <input id="sCode" class="ltr" inputmode="numeric" placeholder="966">
+    <div class="hint" data-t="countryHint"></div>
+    <label for="sMsgLang" data-t="msgLang"></label>
+    <select id="sMsgLang">
+      <option value="auto" data-t="msgLangAuto"></option>
+      <option value="ar">العربية</option>
+      <option value="en">English</option>
+      <option value="ur">اردو</option>
+    </select>
+    <hr>
+    <div class="hint" id="backupHint"></div>
+    <div class="dlg-actions" style="justify-content:flex-start">
+      <button type="button" class="btn" id="exportBtn" data-t="export"></button>
+      <button type="button" class="btn" id="importBtn" data-t="import"></button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="dlg-actions">
+      <button type="submit" class="btn primary" id="settingsDone" data-t="done"></button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  const I18N = {
+    en: {
+      dir: "ltr", appTitle: "Tailor Orders", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
+      name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
+      status: "Status", dueDate: "Due date", notes: "Notes",
+      pending: "In progress", ready: "Thobe is ready", delivered: "Delivered",
+      markReady: "✓ Thobe is ready", markDelivered: "Delivered", notify: "WhatsApp", call: "Call", copy: "Copy no.",
+      edit: "Edit", del: "Delete", save: "Save", cancel: "Cancel", done: "Done",
+      search: "Search name, mobile, book or invoice…", empty: "No orders yet. Tap “New order” to add the first one.",
+      noMatch: "No matching orders.", confirmDel: "Delete this order?", loading: "Loading orders…",
+      errRequired: "Please fill in name, mobile and invoice number.", errDupInvoice: "This invoice number already exists.",
+      settings: "Settings", shopName: "Shop name (shown in messages)", countryCode: "Country code for WhatsApp",
+      countryHint: "Numbers starting with 0 get this code, e.g. 966 for Saudi Arabia.",
+      msgLang: "Customer message language", msgLangAuto: "Same as app language",
+      hintCloud: "Orders are saved online and show on every phone and computer that opens this page.",
+      hintLocal: "Orders are saved on this device only. Export a backup regularly.",
+      noteLocal: "Offline mode: orders are saved on this device only.",
+      noteSlow: "Can't reach the saved orders right now. Check the connection; the list updates by itself.",
+      noteReadOnly: "You can view orders but not change them. Ask the shop owner for Contributor access.",
+      export: "Export backup", import: "Import backup", imported: "Backup imported", importErr: "That file is not a valid backup",
+      saved: "Saved", markedReady: "Marked as ready", due: "Due", copied: "Number copied",
+      saveErr: "Could not save. Check the connection and try again.",
+      msg: (o, shop) => `Hello ${o.name}, your thobe is ready for pickup.\nInvoice no: ${o.invoice}${o.book ? `\nBook no: ${o.book}` : ""}${shop ? `\n${shop}` : ""}\nThank you!`
+    },
+    ar: {
+      dir: "rtl", appTitle: "طلبات الخياط", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
+      name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
+      status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
+      pending: "قيد التفصيل", ready: "الثوب جاهز", delivered: "تم التسليم",
+      markReady: "✓ الثوب جاهز", markDelivered: "تم التسليم", notify: "واتساب", call: "اتصال", copy: "نسخ الرقم",
+      edit: "تعديل", del: "حذف", save: "حفظ", cancel: "إلغاء", done: "تم",
+      search: "ابحث بالاسم أو الجوال أو الدفتر أو الفاتورة…", empty: "لا توجد طلبات بعد. اضغط «طلب جديد» لإضافة أول طلب.",
+      noMatch: "لا توجد طلبات مطابقة.", confirmDel: "هل تريد حذف هذا الطلب؟", loading: "جارٍ تحميل الطلبات…",
+      errRequired: "يرجى إدخال الاسم ورقم الجوال ورقم الفاتورة.", errDupInvoice: "رقم الفاتورة موجود مسبقاً.",
+      settings: "الإعدادات", shopName: "اسم المحل (يظهر في الرسائل)", countryCode: "رمز الدولة للواتساب",
+      countryHint: "الأرقام التي تبدأ بـ 0 يُضاف لها هذا الرمز، مثل 966 للسعودية.",
+      msgLang: "لغة رسالة العميل", msgLangAuto: "نفس لغة التطبيق",
+      hintCloud: "الطلبات محفوظة على الإنترنت وتظهر في كل جوال وكمبيوتر يفتح هذه الصفحة.",
+      hintLocal: "الطلبات محفوظة على هذا الجهاز فقط. صدّر نسخة احتياطية بانتظام.",
+      noteLocal: "وضع بدون اتصال: الطلبات محفوظة على هذا الجهاز فقط.",
+      noteSlow: "تعذّر الوصول إلى الطلبات المحفوظة الآن. تحقق من الاتصال، وستتحدث القائمة تلقائياً.",
+      noteReadOnly: "يمكنك عرض الطلبات فقط. اطلب من صاحب المحل صلاحية المساهمة.",
+      export: "تصدير نسخة احتياطية", import: "استيراد نسخة احتياطية", imported: "تم الاستيراد", importErr: "هذا الملف ليس نسخة احتياطية صالحة",
+      saved: "تم الحفظ", markedReady: "تم تحديده كجاهز", due: "التسليم", copied: "تم نسخ الرقم",
+      saveErr: "تعذّر الحفظ. تحقق من الاتصال وحاول مرة أخرى.",
+      msg: (o, shop) => `مرحباً ${o.name}، ثوبك جاهز للاستلام.\nرقم الفاتورة: ${o.invoice}${o.book ? `\nرقم الدفتر: ${o.book}` : ""}${shop ? `\n${shop}` : ""}\nشكراً لك!`
+    },
+    ur: {
+      dir: "rtl", appTitle: "درزی کے آرڈر", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
+      name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
+      status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
+      pending: "سلائی جاری ہے", ready: "تھوب تیار ہے", delivered: "دے دیا گیا",
+      markReady: "✓ تھوب تیار ہے", markDelivered: "دے دیا گیا", notify: "واٹس ایپ", call: "کال", copy: "نمبر کاپی",
+      edit: "ترمیم", del: "حذف", save: "محفوظ کریں", cancel: "منسوخ", done: "ٹھیک ہے",
+      search: "نام، موبائل، بک یا انوائس سے تلاش کریں…", empty: "ابھی کوئی آرڈر نہیں۔ پہلا آرڈر شامل کرنے کے لیے «نیا آرڈر» دبائیں۔",
+      noMatch: "کوئی آرڈر نہیں ملا۔", confirmDel: "کیا یہ آرڈر حذف کر دیں؟", loading: "آرڈر لوڈ ہو رہے ہیں…",
+      errRequired: "براہ کرم نام، موبائل اور انوائس نمبر درج کریں۔", errDupInvoice: "یہ انوائس نمبر پہلے سے موجود ہے۔",
+      settings: "سیٹنگز", shopName: "دکان کا نام (پیغام میں)", countryCode: "واٹس ایپ کے لیے ملک کا کوڈ",
+      countryHint: "0 سے شروع ہونے والے نمبروں پر یہ کوڈ لگے گا، جیسے سعودی عرب کے لیے 966۔",
+      msgLang: "گاہک کے پیغام کی زبان", msgLangAuto: "ایپ والی زبان",
+      hintCloud: "آرڈر آن لائن محفوظ ہیں اور یہ صفحہ کھولنے والے ہر فون اور کمپیوٹر پر نظر آتے ہیں۔",
+      hintLocal: "آرڈر صرف اسی ڈیوائس پر محفوظ ہیں۔ باقاعدگی سے بیک اپ ایکسپورٹ کریں۔",
+      noteLocal: "آف لائن موڈ: آرڈر صرف اسی ڈیوائس پر محفوظ ہیں۔",
+      noteSlow: "ابھی محفوظ آرڈر تک رسائی نہیں ہو پا رہی۔ کنکشن چیک کریں، فہرست خود اپ ڈیٹ ہو جائے گی۔",
+      noteReadOnly: "آپ صرف آرڈر دیکھ سکتے ہیں۔ دکان کے مالک سے Contributor رسائی مانگیں۔",
+      export: "بیک اپ ایکسپورٹ", import: "بیک اپ امپورٹ", imported: "بیک اپ امپورٹ ہو گیا", importErr: "یہ فائل درست بیک اپ نہیں ہے",
+      saved: "محفوظ ہو گیا", markedReady: "تیار کر دیا گیا", due: "تاریخ", copied: "نمبر کاپی ہو گیا",
+      saveErr: "محفوظ نہیں ہو سکا۔ کنکشن چیک کر کے دوبارہ کوشش کریں۔",
+      msg: (o, shop) => `السلام علیکم ${o.name}، آپ کا تھوب تیار ہے، براہ کرم وصول کر لیں۔\nانوائس نمبر: ${o.invoice}${o.book ? `\nبک نمبر: ${o.book}` : ""}${shop ? `\n${shop}` : ""}\nشکریہ!`
+    }
+  };
+
+  const LKEY = "tailor-orders-v1", PKEY = "tailor-prefs-v1", CKEY = "tailor-settings-v1";
+  const $ = (id) => document.getElementById(id);
+  const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+  // Per-viewer preferences (language, message language) stay in this browser.
+  const prefs = Object.assign({ lang: "ar", msgLang: "auto" }, load(PKEY, {}));
+  // Shop-wide settings are shared through the database when online.
+  let shop = Object.assign({ shop: "", code: "966" }, load(CKEY, {}));
+
+  let mode = "loading";      // "loading" | "cloud" | "local"
+  let readOnly = false;
+  let orders = [];
+  let filter = "all";
+  let editingId = null;
+  let pendingDelete = null;
+  let ordersCol = null, shopRef = null, downloads = null;
+
+  const t = (k) => I18N[prefs.lang][k];
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const digits = (s) => String(s || "").replace(/\D/g, "");
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function toast(msg) {
+    const el = $("toast"); el.textContent = msg; el.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 2200);
+  }
+
+  let noteKey = null;
+  function setNote(key) { noteKey = key; const n = $("note"); n.hidden = !key; if (key) n.textContent = t(key); }
+
+  // ---------- storage ----------
+  async function saveOrder(o) {
+    if (mode === "cloud") { await ordersCol.doc(o.id).set(o); return; }
+    const i = orders.findIndex((x) => x.id === o.id);
+    if (i >= 0) orders[i] = o; else orders.push(o);
+    store(LKEY, orders); render();
+  }
+  async function removeOrder(id) {
+    if (mode === "cloud") { await ordersCol.doc(id).delete(); return; }
+    orders = orders.filter((x) => x.id !== id); store(LKEY, orders); render();
+  }
+  async function saveShop() {
+    store(CKEY, shop);
+    if (mode === "cloud") await shopRef.set({ shop: shop.shop, code: shop.code });
+  }
+  function writeFailed(e) {
+    if (e && (e.code === "invalid_argument" || e.code === "not_granted" || e.code === "revoked")) {
+      readOnly = true; setNote("noteReadOnly"); render();
+    } else toast(t("saveErr"));
+  }
+
+  function goLocal() {
+    mode = "local"; orders = load(LKEY, []); setNote("noteLocal"); applyLang();
+  }
+
+  async function initCloud() {
+    if (!window.claude || typeof window.claude.use !== "function") return goLocal();
+    const db = await window.claude.use("db");
+    if (!db) return goLocal();
+    mode = "cloud";
+    ordersCol = db.collection("orders");
+    shopRef = db.doc("config/shop");
+
+    window.claude.use("downloads").then((d) => { downloads = d; });
+    window.claude.use("user").then(async (u) => {
+      const can = u ? await u.can("data.write") : null;
+      if (can === false) { readOnly = true; setNote("noteReadOnly"); render(); }
+    });
+
+    let slow = setTimeout(() => setNote("noteSlow"), 10000);
+    ordersCol.onSnapshot((snap) => {
+      orders = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      if (!snap.metadata.fromCache) { clearTimeout(slow); if (noteKey === "noteSlow") setNote(readOnly ? "noteReadOnly" : null); loaded = true; }
+      render();
+    }, () => { clearTimeout(slow); setNote("noteSlow"); loaded = true; render(); });
+    shopRef.onSnapshot((snap) => {
+      if (snap.exists) { const d = snap.data(); shop = { shop: String(d.shop || ""), code: String(d.code || "966") }; store(CKEY, shop); applyLang(); }
+    }, () => {});
+    applyLang();
+  }
+  let loaded = false;
+
+  // ---------- rendering ----------
+  function applyLang() {
+    const L = I18N[prefs.lang];
+    document.documentElement.lang = prefs.lang;
+    document.documentElement.dir = L.dir;
+    document.title = shop.shop || L.appTitle;
+    $("title").textContent = shop.shop || L.appTitle;
+    $("addBtn").textContent = L.add;
+    $("search").placeholder = L.search;
+    document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = L[el.dataset.t]; });
+    document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === prefs.lang));
+    $("backupHint").textContent = mode === "cloud" ? L.hintCloud : L.hintLocal;
+    if (noteKey) setNote(noteKey);
+    render();
+  }
+
+  function waNumber(mobile) {
+    let d = digits(mobile);
+    if (d.startsWith("00")) d = d.slice(2);
+    else if (d.startsWith("0")) d = digits(shop.code) + d.slice(1);
+    return d;
+  }
+  function waLink(o) {
+    const lang = prefs.msgLang === "auto" ? prefs.lang : prefs.msgLang;
+    return `https://wa.me/${waNumber(o.mobile)}?text=${encodeURIComponent(I18N[lang].msg(o, shop.shop))}`;
+  }
+
+  function render() {
+    const counts = { pending: 0, ready: 0, delivered: 0 };
+    orders.forEach((o) => { if (counts[o.status] !== undefined) counts[o.status]++; });
+    $("cPending").textContent = counts.pending;
+    $("cReady").textContent = counts.ready;
+    $("cDelivered").textContent = counts.delivered;
+    document.querySelectorAll(".stat").forEach((s) => s.classList.toggle("on", s.dataset.filter === filter));
+    $("addBtn").hidden = readOnly || mode === "loading";
+
+    const list = $("list");
+    if (mode === "loading" || (mode === "cloud" && !loaded && !orders.length)) {
+      list.innerHTML = `<div class="empty">${esc(t("loading"))}</div>`; return;
+    }
+    const q = $("search").value.trim().toLowerCase();
+    const rank = { ready: 0, pending: 1, delivered: 2 };
+    const shown = orders
+      .filter((o) => filter === "all" || o.status === filter)
+      .filter((o) => !q || [o.name, o.mobile, o.book, o.invoice].some((v) => String(v || "").toLowerCase().includes(q)))
+      .sort((a, b) => (rank[a.status] ?? 3) - (rank[b.status] ?? 3) || (b.updated || 0) - (a.updated || 0));
+
+    if (!shown.length) { list.innerHTML = `<div class="empty">${esc(orders.length ? t("noMatch") : t("empty"))}</div>`; return; }
+    const ro = readOnly ? " disabled" : "";
+    list.innerHTML = shown.map((o) => `
+      <div class="order ${esc(o.status)}" data-id="${esc(o.id)}">
+        <div class="order-top">
+          <div class="name">${esc(o.name)}</div>
+          <span class="badge ${esc(o.status)}">${esc(t(o.status) || o.status)}</span>
+        </div>
+        <div class="meta">
+          <div>${esc(t("mobile"))}: <b dir="ltr">${esc(o.mobile)}</b></div>
+          <div>${esc(t("invoice"))}: <b dir="ltr">${esc(o.invoice)}</b></div>
+          ${o.book ? `<div>${esc(t("book"))}: <b dir="ltr">${esc(o.book)}</b></div>` : ""}
+          ${o.due ? `<div>${esc(t("due"))}: <b dir="ltr">${esc(o.due)}</b></div>` : ""}
+          ${o.notes ? `<div class="wide">${esc(t("notes"))}: <b>${esc(o.notes)}</b></div>` : ""}
+        </div>
+        <div class="actions">
+          ${o.status === "pending" ? `<button class="btn ready" data-act="ready"${ro}>${esc(t("markReady"))}</button>` : ""}
+          ${o.status === "ready" ? `<a class="btn wa" href="${esc(waLink(o))}" target="_blank" rel="noopener">${esc(t("notify"))}</a>
+                                   <button class="btn primary" data-act="delivered"${ro}>${esc(t("markDelivered"))}</button>` : ""}
+          <a class="btn" href="tel:${esc(digits(o.mobile))}">${esc(t("call"))}</a>
+          <button class="btn" data-act="copy">${esc(t("copy"))}</button>
+          <button class="btn" data-act="edit"${ro}>${esc(t("edit"))}</button>
+          <button class="btn danger" data-act="del"${ro}>${esc(t("del"))}</button>
+        </div>
+      </div>`).join("");
+  }
+
+  // ---------- actions ----------
+  $("list").addEventListener("click", async (e) => {
+    const el = e.target.closest("[data-act]");
+    if (!el || el.disabled) return;
+    const o = orders.find((x) => x.id === el.closest(".order").dataset.id);
+    if (!o) return;
+    const act = el.dataset.act;
+    if (act === "ready" || act === "delivered") {
+      el.disabled = true;
+      try { await saveOrder({ ...o, status: act, updated: Date.now() }); if (act === "ready") toast(t("markedReady")); }
+      catch (err) { el.disabled = false; writeFailed(err); }
+    } else if (act === "copy") {
+      try { await navigator.clipboard.writeText(o.mobile); toast(t("copied")); }
+      catch { const r = document.createRange(); r.selectNodeContents(el.closest(".order").querySelector(".meta b")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    } else if (act === "edit") openOrder(o);
+    else if (act === "del") { pendingDelete = o.id; $("confirmWho").textContent = `${o.name} · ${o.invoice}`; $("confirmDlg").showModal(); }
+  });
+
+  $("confirmNo").onclick = () => $("confirmDlg").close();
+  $("confirmYes").onclick = async () => {
+    const id = pendingDelete; $("confirmDlg").close();
+    try { await removeOrder(id); } catch (err) { writeFailed(err); }
+  };
+
+  function openOrder(o) {
+    editingId = o ? o.id : null;
+    $("orderDlgTitle").textContent = o ? t("editOrder") : t("newOrder");
+    $("fName").value = o?.name || "";
+    $("fMobile").value = o?.mobile || "";
+    $("fBook").value = o?.book || "";
+    $("fInvoice").value = o?.invoice || "";
+    $("fStatus").value = o?.status || "pending";
+    $("fDue").value = o?.due || "";
+    $("fNotes").value = o?.notes || "";
+    $("formErr").textContent = "";
+    $("orderDlg").showModal();
+  }
+  $("addBtn").onclick = () => openOrder(null);
+  $("cancelOrder").onclick = () => $("orderDlg").close();
+
+  $("orderForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = {
+      name: $("fName").value.trim(), mobile: $("fMobile").value.trim(), book: $("fBook").value.trim(),
+      invoice: $("fInvoice").value.trim(), status: $("fStatus").value, due: $("fDue").value, notes: $("fNotes").value.trim()
+    };
+    if (!data.name || !data.mobile || !data.invoice) { $("formErr").textContent = t("errRequired"); return; }
+    if (orders.some((o) => o.invoice === data.invoice && o.id !== editingId)) { $("formErr").textContent = t("errDupInvoice"); return; }
+    const prev = editingId ? orders.find((o) => o.id === editingId) : null;
+    const o = { ...(prev || { id: newId(), created: Date.now() }), ...data, updated: Date.now() };
+    $("saveOrder").disabled = true;
+    try { await saveOrder(o); $("orderDlg").close(); toast(t("saved")); }
+    catch (err) { $("orderDlg").close(); writeFailed(err); }
+    finally { $("saveOrder").disabled = false; }
+  });
+
+  document.querySelectorAll(".stat").forEach((s) => s.addEventListener("click", () => {
+    filter = filter === s.dataset.filter ? "all" : s.dataset.filter; render();
+  }));
+  $("search").addEventListener("input", render);
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => {
+    prefs.lang = b.dataset.lang; store(PKEY, prefs); applyLang();
+  }));
+
+  // ---------- settings & backup ----------
+  $("settingsBtn").onclick = () => {
+    $("sShop").value = shop.shop; $("sCode").value = shop.code; $("sMsgLang").value = prefs.msgLang;
+    $("sShop").disabled = $("sCode").disabled = $("importBtn").disabled = readOnly;
+    $("settingsDlg").showModal();
+  };
+  $("settingsForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    prefs.msgLang = $("sMsgLang").value; store(PKEY, prefs);
+    const next = { shop: $("sShop").value.trim(), code: digits($("sCode").value) || "966" };
+    $("settingsDlg").close();
+    if (!readOnly && (next.shop !== shop.shop || next.code !== shop.code)) {
+      shop = next;
+      try { await saveShop(); } catch (err) { writeFailed(err); }
+    }
+    applyLang();
+  });
+
+  $("exportBtn").onclick = async () => {
+    const json = JSON.stringify({ app: "tailor-orders", version: 1, exported: new Date().toISOString(), settings: shop, orders }, null, 2);
+    const filename = `tailor-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    if (downloads) { try { await downloads.save({ filename, data: json }); } catch {} return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); if (!Array.isArray(data.orders)) throw 0; }
+    catch { toast(t("importErr")); return; }
+    try {
+      for (const o of data.orders) {
+        if (!o || !o.id || !o.name || !o.invoice) continue;
+        await saveOrder({ id: String(o.id), name: String(o.name), mobile: String(o.mobile || ""), book: String(o.book || ""),
+          invoice: String(o.invoice), status: ["pending", "ready", "delivered"].includes(o.status) ? o.status : "pending",
+          due: String(o.due || ""), notes: String(o.notes || ""), created: Number(o.created) || Date.now(), updated: Number(o.updated) || Date.now() });
+      }
+      toast(t("imported"));
+    } catch (err) { writeFailed(err); }
+  });
+
+  applyLang();
+  initCloud();
+})();
+</script>
