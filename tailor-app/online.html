@@ -432,6 +432,7 @@
       qty: "Number of thobes", qtyShort: "Thobes", thobesN: (n) => `${n} ${n === 1 ? "thobe" : "thobes"}`,
       installIosChrome: "Tap {share} Share in the address bar at the top, then {add} “Add to Home Screen”.", installAndroidMenu: "Tap the {menu} menu at the top right of Chrome, then “Install app” or “Add to Home screen”.", installInApp: "This link is open inside another app, which cannot add it to the home screen. Copy the link and open it in {browser}.", copyLink: "Copy link", linkCopied: "Link copied. Paste it in the browser.",
       iosSteps: ["Tap {share} Share at the bottom of Safari (on newer iPhones tap {dots} first, then Share).", "Scroll down the list and tap {add} “Add to Home Screen”.", "Tap “Add” at the top right."],
+      synced: (n) => `${n} ${n === 1 ? "order" : "orders"} saved on this phone earlier ${n === 1 ? "was" : "were"} uploaded.`,
       appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
@@ -451,7 +452,7 @@
       hintCloud: "Orders are saved online and show on every phone and computer that opens this page.",
       hintLocal: "Orders are saved on this device only. Export a backup regularly.",
       noteLocal: "Offline mode: orders are saved on this device only.",
-      noteSlow: "Can't reach the saved orders right now. Check the connection; the list updates by itself.",
+      noteSlow: "No connection to the shop's orders. Retrying… The list updates by itself when the connection is back.",
       noteReadOnly: "You can view orders but not change them. Ask the shop owner for Contributor access.",
       export: "Export backup", import: "Import backup", imported: "Backup imported", importErr: "That file is not a valid backup",
       saved: "Saved", markedReady: "Marked as ready", due: "Due", copied: "Number copied",
@@ -467,6 +468,7 @@
       qty: "عدد الثياب", qtyShort: "عدد الثياب", thobesN: (n) => n === 1 ? "ثوب واحد" : n === 2 ? "ثوبان" : n >= 3 && n <= 10 ? `${n} ثياب` : n >= 11 && n <= 99 ? `${n} ثوبًا` : `${n} ثوب`,
       installIosChrome: "اضغط {share} مشاركة في شريط العنوان بالأعلى، ثم {add} «إضافة إلى الشاشة الرئيسية».", installAndroidMenu: "اضغط القائمة {menu} أعلى يمين Chrome، ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».", installInApp: "الرابط مفتوح داخل تطبيق آخر لا يسمح بالإضافة إلى الشاشة الرئيسية. انسخ الرابط وافتحه في {browser}.", copyLink: "نسخ الرابط", linkCopied: "تم نسخ الرابط. الصقه في المتصفح.",
       iosSteps: ["اضغط {share} مشاركة أسفل Safari (في أجهزة iPhone الأحدث اضغط {dots} أولاً ثم مشاركة).", "مرّر القائمة للأسفل واضغط {add} «إضافة إلى الشاشة الرئيسية».", "اضغط «إضافة» أعلى يمين الشاشة."],
+      synced: (n) => `تم رفع ${n} من الطلبات كانت محفوظة على هذا الجهاز فقط.`,
       appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
@@ -502,6 +504,7 @@
       qty: "تھوب کی تعداد", qtyShort: "تھوب", thobesN: (n) => `${n} تھوب`,
       installIosChrome: "اوپر ایڈریس بار میں {share} شیئر دبائیں، پھر {add} «Add to Home Screen» منتخب کریں۔", installAndroidMenu: "Chrome کے اوپر دائیں {menu} مینو دبائیں، پھر «Install app» یا «Add to Home screen» منتخب کریں۔", installInApp: "یہ لنک کسی اور ایپ کے اندر کھلا ہے جو ہوم اسکرین پر شامل نہیں کر سکتی۔ لنک کاپی کر کے {browser} میں کھولیں۔", copyLink: "لنک کاپی کریں", linkCopied: "لنک کاپی ہو گیا۔ براؤزر میں پیسٹ کریں۔",
       iosSteps: ["Safari کے نیچے {share} شیئر دبائیں (نئے iPhone پر پہلے {dots} دبائیں، پھر شیئر)۔", "فہرست نیچے اسکرول کریں اور {add} «Add to Home Screen» دبائیں۔", "اوپر دائیں «Add» دبائیں۔"],
+      synced: (n) => `اس فون پر محفوظ ${n} آرڈر اپ لوڈ کر دیے گئے۔`,
       appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
@@ -599,7 +602,7 @@
     if (e && e.code === "login") return;
     if (e && (e.code === "invalid_argument" || e.code === "not_granted" || e.code === "revoked")) {
       readOnly = true; setNote("noteReadOnly"); render();
-    } else toast(t("saveErr"));
+    } else { toast(t("saveErr")); if (mode === "server") pullState(); }
   }
 
   function goLocal() {
@@ -607,10 +610,14 @@
   }
 
   // ---------- server mode ----------
-  let serverScan = false, pollTimer = null, reportOk = false, lastSig = "";
+  let serverScan = false, pollTimer = null, reportOk = false, lastSig = "", lastVersion = null, events = null, retryTimer = null, retryDelay = 2000, migrated = false;
   async function pullState() {
     try {
       const st = await api("GET", "api/state");
+      clearTimeout(retryTimer); retryDelay = 2000;
+      lastVersion = st.version;
+      if (noteKey === "noteSlow") setNote(null);
+      if (!migrated) { migrated = true; migrateLocal(); }
       const sig = JSON.stringify([st.orders, st.config, st.scan, st.report]);
       if (sig === lastSig && loaded) return true;   // nothing changed – skip re-rendering
       lastSig = sig;
@@ -623,26 +630,70 @@
       applyLang();
       return true;
     } catch (e) {
-      if (e && e.code !== "login") setNote("noteSlow");
+      if (e && e.code !== "login") {
+        setNote("noteSlow"); render();
+        // Keep trying, a little slower each time (2s, 4s, 8s … up to 30s).
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(pullState, retryDelay);
+        retryDelay = Math.min(30000, retryDelay * 2);
+      }
       return false;
     }
   }
   async function initServer() {
-    let probe;
-    try { probe = await fetch("api/state", { credentials: "same-origin" }); } catch { return false; }
-    if (probe.status !== 200) return false;
+    // On the shop's own site the orders always live on the server. If it cannot be reached
+    // right now (weak signal, app opened offline, server restarting) we keep retrying instead
+    // of switching to "this phone only", so nothing gets stuck on one phone.
+    let probe = null;
+    try { probe = await fetch("api/state", { credentials: "same-origin", cache: "no-store" }); } catch {}
+    if (probe && probe.status === 404) return false;   // not the Salar server (plain web host)
     mode = "server";
+    applyLang();
     await pullState();
     if (location.hash === "#report") setView("report");
     setupInstall();
     startPolling();
+    startEvents();
     return true;
   }
   function startPolling() {
     clearInterval(pollTimer);
-    pollTimer = setInterval(() => { if (!document.hidden) pullState(); }, 20000);
+    pollTimer = setInterval(() => { if (!document.hidden) pullState(); }, 15000);
   }
-  document.addEventListener("visibilitychange", () => { if (mode === "server" && !document.hidden) pullState(); });
+  // Live updates: the server tells every open phone the moment anything changes.
+  function startEvents() {
+    if (!window.EventSource) return;
+    try { if (events) events.close(); } catch {}
+    events = new EventSource("api/events");
+    events.onmessage = (e) => { if (String(e.data) !== String(lastVersion)) pullState(); };
+  }
+  function resync() {
+    if (mode !== "server") return;
+    pullState();
+    if (events && events.readyState === 2) startEvents();
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) resync(); });
+  window.addEventListener("online", resync);
+  window.addEventListener("pageshow", (e) => { if (e.persisted) resync(); });
+
+  // Orders that an older version saved on this phone only are uploaded once, then cleared.
+  async function migrateLocal() {
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem(LKEY) || "[]"); } catch {}
+    if (!Array.isArray(local) || !local.length) return;
+    const byId = new Map(orders.map((o) => [o.id, o]));
+    let sent = 0;
+    for (const o of local) {
+      if (!o || !o.id || !o.name || !o.invoice) continue;
+      const cur = byId.get(o.id);
+      if (cur && (cur.updated || 0) >= (o.updated || 0)) continue;
+      if (!cur && orders.some((x) => x.invoice === o.invoice)) continue;
+      try { upsertLocal(await api("PUT", "api/orders/" + encodeURIComponent(o.id), o)); sent++; }
+      catch { migrated = false; return; }   // try again on the next successful sync
+    }
+    try { localStorage.removeItem(LKEY); } catch {}
+    if (sent) { render(); toast(t("synced")(sent)); }
+  }
 
   function showLogin() {
     if ($("loginDlg").open) return;

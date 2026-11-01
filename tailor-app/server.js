@@ -61,6 +61,16 @@ try {
 } catch (e) {
   if (e.code !== "ENOENT") console.error("Could not read data file:", e.message);
 }
+// ---------- live updates (Server-Sent Events) ----------
+// Every change bumps the version and tells all open phones to fetch the new state.
+let version = Date.now();
+const listeners = new Set();
+function broadcast() {
+  version++;
+  for (const r of listeners) { try { r.write(`data: ${version}\n\n`); } catch { listeners.delete(r); } }
+}
+setInterval(() => { for (const r of listeners) { try { r.write(": ping\n\n"); } catch { listeners.delete(r); } } }, 25000).unref();
+
 let writing = Promise.resolve();
 function persist() {
   writing = writing.then(async () => {
@@ -69,6 +79,7 @@ function persist() {
     await fsp.writeFile(tmp, JSON.stringify(state));
     await fsp.rename(tmp, DATA_FILE);
   });
+  writing.then(broadcast, () => {});
   return writing;
 }
 
@@ -242,7 +253,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === "/api/state" && req.method === "GET") {
-      return send(res, 200, { orders: Object.values(state.orders), config: state.config, scan: !!anthropic, report: validToken(cookieOf(req, COOKIE)) });
+      return send(res, 200, { orders: Object.values(state.orders), config: state.config, scan: !!anthropic, report: validToken(cookieOf(req, COOKIE)), version });
+    }
+    if (p === "/api/events" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
+      res.write(`retry: 3000\ndata: ${version}\n\n`);
+      listeners.add(res);
+      req.on("close", () => listeners.delete(res));
+      return;
     }
     const om = p.match(/^\/api\/orders\/([^/]+)$/);
     if (om) {
