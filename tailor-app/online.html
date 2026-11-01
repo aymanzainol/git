@@ -93,9 +93,10 @@
   .ltr { direction: ltr; }
   [dir=rtl] .ltr { text-align: right; }
   .vorders { display: flex; flex-direction: column; gap: 12px; }
-  .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; }
-  .tabs button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 8px; border-radius: 9px; cursor: pointer; }
-  .tabs button.on { background: var(--ink); color: var(--bg); }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .icon-btn.on { background: var(--brand-ink); color: var(--navy); }
+  #title { cursor: pointer; }
+  .rtitle { margin: 0; font-family: var(--f-display); font-size: 20px; }
   .report { display: flex; flex-direction: column; gap: 12px; }
   .rhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
@@ -172,18 +173,15 @@
         <button role="menuitemradio" data-lang="ur" id="langUr"><span lang="ur">اردو</span><i class="tick" aria-hidden="true">✓</i></button>
       </div>
     </div>
+    <button class="icon-btn" id="reportBtn" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V6"/><path d="M17 16v-8"/></svg></button>
     <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
   </div>
 </header>
 
 <main class="gutter">
   <div class="note" id="note" hidden></div>
-  <nav class="tabs" role="tablist">
-    <button role="tab" id="tabOrders" data-view="orders" data-t="tabOrders"></button>
-    <button role="tab" id="tabReport" data-view="report" data-t="tabReport"></button>
-  </nav>
-
   <section id="viewReport" class="report" hidden>
+    <h2 class="rtitle" data-t="tabReport"></h2>
     <div class="rhead">
       <div class="seg" role="group">
         <button data-mode="day" id="mDay" data-t="day"></button>
@@ -619,6 +617,8 @@
     $("search").placeholder = L.search;
     document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = L[el.dataset.t]; });
     document.querySelectorAll(".langs button").forEach((b) => { const on = b.dataset.lang === prefs.lang; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
+    $("reportBtn").setAttribute("aria-label", L.tabReport); $("reportBtn").title = L.tabReport;
+    $("settingsBtn").setAttribute("aria-label", L.settings); $("settingsBtn").title = L.settings;
     $("langCur").textContent = { ar: "العربية", en: "English", ur: "اردو" }[prefs.lang];
     $("backupHint").textContent = mode === "cloud" || mode === "server" ? L.hintCloud : L.hintLocal;
     if (noteKey) setNote(noteKey);
@@ -901,13 +901,16 @@
     view = v === "report" ? "report" : "orders";
     $("viewReport").hidden = view !== "report";
     $("viewOrders").hidden = view === "report";
-    document.querySelectorAll(".tabs button").forEach((b) => { const on = b.dataset.view === view; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+    $("reportBtn").classList.toggle("on", view === "report");
+    $("reportBtn").setAttribute("aria-pressed", view === "report");
     render();
   }
-  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
-    const h = "#" + b.dataset.view;
-    if (location.hash !== h) location.hash = h; else setView(b.dataset.view);
-  }));
+  function goView(v) {
+    const h = "#" + v;
+    if (location.hash !== h) location.hash = h; else setView(v);
+  }
+  $("reportBtn").addEventListener("click", () => goView(view === "report" ? "orders" : "report"));
+  $("title").addEventListener("click", () => goView("orders"));
   window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
 
   // ---------- scan invoice with the camera ----------
