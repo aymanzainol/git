@@ -1,9 +1,10 @@
 // Salar Tailoring – small server for Railway.
-// Serves the app page, keeps orders in a JSON file on a volume, protects them with a
-// shop password, and reads invoice photos with the Claude API when ANTHROPIC_API_KEY is set.
+// Serves the app page, keeps orders in a JSON file on a volume, and reads invoice photos
+// with the Claude API when ANTHROPIC_API_KEY is set. Orders are open to anyone with the
+// link; only the Report tab asks for the password.
 //
 // Environment:
-//   APP_PASSWORD       required – the password staff type to open the app
+//   APP_PASSWORD       required – the password for the Report tab
 //   DATA_DIR           where orders.json lives (default /data, mount a Railway volume there)
 //   ANTHROPIC_API_KEY  optional – turns on the "Scan" invoice button
 //   SESSION_SECRET     optional – signs login cookies (defaults to a value derived from APP_PASSWORD)
@@ -27,7 +28,7 @@ const COOKIE = "salar_session";
 const SESSION_DAYS = 90;
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 
-if (!PASSWORD) console.warn("APP_PASSWORD is not set – the app will refuse all logins until it is.");
+if (!PASSWORD) console.warn("APP_PASSWORD is not set – the Report tab cannot be opened until it is.");
 
 // ---------- page ----------
 const SKELETON_HEAD = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -206,14 +207,13 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true }, { "Set-Cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0` });
     }
 
-    if (!validToken(cookieOf(req, COOKIE))) return send(res, 401, { error: "login_required" });
-    // Same-origin check for writes (cookie is SameSite=Strict as well).
+    // Same-origin check for writes.
     if (req.method !== "GET" && req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) {
       return send(res, 403, { error: "bad_origin" });
     }
 
     if (p === "/api/state" && req.method === "GET") {
-      return send(res, 200, { orders: Object.values(state.orders), config: state.config, scan: !!anthropic });
+      return send(res, 200, { orders: Object.values(state.orders), config: state.config, scan: !!anthropic, report: validToken(cookieOf(req, COOKIE)) });
     }
     const om = p.match(/^\/api\/orders\/([^/]+)$/);
     if (om) {

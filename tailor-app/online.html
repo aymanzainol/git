@@ -98,7 +98,8 @@
   .pnav { display: flex; align-items: center; gap: 8px; }
   .pnav b { min-width: 9em; text-align: center; font-variant-numeric: tabular-nums; }
   .pnav .btn { padding: 4px 12px; font-size: 18px; line-height: 1.2; }
-  [dir=rtl] .pnav .btn { transform: scaleX(-1); }
+  [dir=rtl] .pnav .btn:not(#lockBtn) { transform: scaleX(-1); }
+  #lockBtn { font-size: 13px; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
   .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
   .kpi span { font-size: 13px; color: var(--muted); }
@@ -177,6 +178,7 @@
         <button data-mode="month" id="mMonth" data-t="month"></button>
       </div>
       <div class="pnav">
+        <button class="btn" id="lockBtn" hidden><span aria-hidden="true">🔒</span> <span data-t="lock"></span></button>
         <button class="btn" id="pPrev" aria-label="Previous">‹</button>
         <b id="pLabel"></b>
         <button class="btn" id="pNext" aria-label="Next">›</button>
@@ -309,6 +311,7 @@
     <input id="loginPw" type="password" autocomplete="current-password">
     <div class="err" id="loginErr"></div>
     <div class="dlg-actions">
+      <button type="button" class="btn" id="loginCancel" data-t="cancel"></button>
       <button type="submit" class="btn primary" id="loginBtn" data-t="loginBtn"></button>
     </div>
   </form>
@@ -321,7 +324,7 @@
   const I18N = {
     en: {
       dir: "ltr", tabOrders: "Orders", tabReport: "Report", day: "Daily", week: "Weekly", month: "Monthly", kNew: "New orders", kReady: "Thobes ready", kDelivered: "Delivered", kAvg: "Avg. days to deliver", daysU: "days", nowTitle: "Right now", kWaiting: "Waiting for pickup", kOverdue: "Overdue", chartTitle: "New orders and deliveries", legNew: "New orders", legDel: "Delivered", periodCol: "Period", overdueTitle: "Past their due date", noOverdue: "No overdue orders.", today: "Today", thisWeek: "This week", thisMonth: "This month", weekOf: "Week of", locale: "en-GB",
-      loginTitle: "Sign in to Salar Orders", password: "Shop password", loginBtn: "Sign in", loginWrong: "That password is not correct.", loginTooMany: "Too many tries. Wait 15 minutes and try again.",
+      loginTitle: "Report password", password: "Password", loginBtn: "Open report", lock: "Lock", loginWrong: "That password is not correct.", loginTooMany: "Too many tries. Wait 15 minutes and try again.",
       appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
@@ -350,7 +353,7 @@
     },
     ar: {
       dir: "rtl", tabOrders: "الطلبات", tabReport: "التقارير", day: "يومي", week: "أسبوعي", month: "شهري", kNew: "طلبات جديدة", kReady: "ثياب جاهزة", kDelivered: "تم تسليمها", kAvg: "متوسط أيام التسليم", daysU: "يوم", nowTitle: "الوضع الآن", kWaiting: "بانتظار الاستلام", kOverdue: "متأخرة", chartTitle: "الطلبات الجديدة والتسليم", legNew: "طلبات جديدة", legDel: "تم التسليم", periodCol: "الفترة", overdueTitle: "طلبات تجاوزت موعد التسليم", noOverdue: "لا توجد طلبات متأخرة.", today: "اليوم", thisWeek: "هذا الأسبوع", thisMonth: "هذا الشهر", weekOf: "أسبوع", locale: "ar-SA-u-ca-gregory-nu-latn",
-      loginTitle: "تسجيل الدخول إلى طلبات سالار", password: "كلمة مرور المحل", loginBtn: "دخول", loginWrong: "كلمة المرور غير صحيحة.", loginTooMany: "محاولات كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.",
+      loginTitle: "كلمة مرور التقارير", password: "كلمة المرور", loginBtn: "فتح التقارير", lock: "قفل", loginWrong: "كلمة المرور غير صحيحة.", loginTooMany: "محاولات كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.",
       appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
@@ -379,7 +382,7 @@
     },
     ur: {
       dir: "rtl", tabOrders: "آرڈر", tabReport: "رپورٹ", day: "روزانہ", week: "ہفتہ وار", month: "ماہانہ", kNew: "نئے آرڈر", kReady: "تیار تھوب", kDelivered: "دے دیے گئے", kAvg: "ڈیلیوری کے اوسط دن", daysU: "دن", nowTitle: "ابھی کی صورتحال", kWaiting: "وصولی کے منتظر", kOverdue: "تاخیر شدہ", chartTitle: "نئے آرڈر اور ڈیلیوری", legNew: "نئے آرڈر", legDel: "دے دیے گئے", periodCol: "مدت", overdueTitle: "تاریخ گزر چکے آرڈر", noOverdue: "کوئی آرڈر تاخیر میں نہیں۔", today: "آج", thisWeek: "اس ہفتے", thisMonth: "اس مہینے", weekOf: "ہفتہ", locale: "ur-PK-u-nu-latn",
-      loginTitle: "سالار آرڈر میں سائن اِن کریں", password: "دکان کا پاس ورڈ", loginBtn: "سائن اِن", loginWrong: "پاس ورڈ درست نہیں ہے۔", loginTooMany: "بہت زیادہ کوششیں۔ 15 منٹ انتظار کر کے دوبارہ کوشش کریں۔",
+      loginTitle: "رپورٹ کا پاس ورڈ", password: "پاس ورڈ", loginBtn: "رپورٹ کھولیں", lock: "لاک", loginWrong: "پاس ورڈ درست نہیں ہے۔", loginTooMany: "بہت زیادہ کوششیں۔ 15 منٹ انتظار کر کے دوبارہ کوشش کریں۔",
       appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
@@ -445,7 +448,7 @@
   // Server mode (Railway): a small REST API with a shop password.
   async function api(method, url, body) {
     const r = await fetch(url, { method, credentials: "same-origin", headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
-    if (r.status === 401) { showLogin(); throw { code: "login" }; }
+    if (r.status === 401) { reportOk = false; throw { code: "login" }; }
     if (!r.ok) throw { code: "http_" + r.status };
     return r.json();
   }
@@ -482,13 +485,14 @@
   }
 
   // ---------- server mode ----------
-  let serverScan = false, pollTimer = null;
+  let serverScan = false, pollTimer = null, reportOk = false;
   async function pullState() {
     try {
       const st = await api("GET", "api/state");
       orders = st.orders || [];
       if (st.config) { shop = { shop: String(st.config.shop || ""), code: String(st.config.code || "966") }; store(CKEY, shop); }
-      serverScan = !!st.scan; canScan = serverScan;
+      serverScan = !!st.scan; canScan = serverScan; reportOk = !!st.report;
+      if (view === "report" && !reportOk) setView("orders");
       loaded = true;
       if (noteKey === "noteSlow") setNote(null);
       applyLang();
@@ -501,10 +505,10 @@
   async function initServer() {
     let probe;
     try { probe = await fetch("api/state", { credentials: "same-origin" }); } catch { return false; }
-    if (probe.status !== 200 && probe.status !== 401) return false;
+    if (probe.status !== 200) return false;
     mode = "server";
-    if (probe.status === 401) { applyLang(); showLogin(); return true; }
     await pullState();
+    if (location.hash === "#report") setView("report");
     startPolling();
     return true;
   }
@@ -525,12 +529,17 @@
     $("loginBtn").disabled = true; $("loginErr").textContent = "";
     try {
       const r = await fetch("api/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("loginPw").value }) });
-      if (r.ok) { $("loginDlg").close(); await pullState(); startPolling(); }
+      if (r.ok) { $("loginDlg").close(); reportOk = true; setView("report"); }
       else $("loginErr").textContent = r.status === 429 ? t("loginTooMany") : t("loginWrong");
     } catch { $("loginErr").textContent = t("saveErr"); }
     finally { $("loginBtn").disabled = false; }
   });
-  $("loginDlg").addEventListener("cancel", (e) => e.preventDefault());
+  $("loginCancel").onclick = () => $("loginDlg").close();
+  $("lockBtn").onclick = async () => {
+    try { await fetch("api/logout", { method: "POST", credentials: "same-origin" }); } catch {}
+    reportOk = false;
+    if (location.hash === "#report") location.hash = "#orders"; else setView("orders");
+  };
 
   async function initCloud() {
     if (!window.claude || typeof window.claude.use !== "function") {
@@ -763,6 +772,7 @@
     const cur = period(rMode, rOffset), s = stats(cur);
     $("pLabel").textContent = longLabel(cur);
     $("pNext").disabled = rOffset >= 0;
+    $("lockBtn").hidden = mode !== "server";
     $("kNew").textContent = s.n; $("kReady").textContent = s.rd; $("kDelivered").textContent = s.dl;
     $("kAvg").textContent = s.avg === null ? "–" : `${(Math.round(s.avg * 10) / 10)} ${t("daysU")}`;
 
@@ -830,6 +840,10 @@
   let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (view === "report") renderReport(); }, 150); });
 
   function setView(v) {
+    if (v === "report" && mode === "server" && !reportOk) {
+      if (location.hash === "#report") history.replaceState(null, "", "#orders");
+      showLogin(); v = "orders";
+    }
     view = v === "report" ? "report" : "orders";
     $("viewReport").hidden = view !== "report";
     $("viewOrders").hidden = view === "report";

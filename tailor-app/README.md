@@ -36,9 +36,10 @@ and a "Right now" panel shows orders in progress, waiting for pickup and overdue
 ## Railway version
 `server.js` serves the same page on Railway with its own storage:
 - Orders are kept in `orders.json` on a Railway volume mounted at `/data`.
-- Everyone signs in with one shop password (`APP_PASSWORD`). Sessions last 90 days.
+- Orders open without a password for anyone with the link. Only the **Report** tab asks for the
+  password (`APP_PASSWORD`); it stays unlocked on that device for 90 days, or until **Lock** is tapped.
 - The **Scan** button works when `ANTHROPIC_API_KEY` is set (Claude reads the invoice photo).
 - The page can be added to the phone's home screen (it has an app icon).
 
-Variables: `APP_PASSWORD` (required), `ANTHROPIC_API_KEY` (optional), `DATA_DIR` (default `/data`).
+Variables: `APP_PASSWORD` (required, the report password), `ANTHROPIC_API_KEY` (optional), `DATA_DIR` (default `/data`).
 Run locally: `cd tailor-app && npm install && APP_PASSWORD=test DATA_DIR=./data npm start`.
