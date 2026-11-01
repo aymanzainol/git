@@ -31,6 +31,9 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  /* No zoom on phones: no double-tap zoom, and form fields at 16px so iPhone does not zoom in on focus. */
+  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  button, a, input, select, textarea, label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   [hidden] { display: none !important; }
   body { background: linear-gradient(var(--bg-top), var(--bg) 260px) no-repeat, var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; padding-bottom: 104px; }
   body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--navy); }
@@ -122,6 +125,7 @@
   .dlg h2 { margin: 0 0 8px; font-size: 19px; font-family: var(--f-display); }
   label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
   input, select, textarea { width: 100%; padding: 11px 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; transition: border-color .15s, box-shadow .15s; }
+  input, select, textarea, .search { font-size: 16px !important; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--sel); }
   @media (prefers-reduced-motion: reduce) { .stat, .fab, .btn, .tool, .icon-btn { transition: none; } .stat:hover, .fab:hover { transform: none; } }
   .ltr { direction: ltr; }
