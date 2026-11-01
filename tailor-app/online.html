@@ -29,6 +29,7 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; padding-bottom: 104px; }
   body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--brand); }
   .gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -81,6 +82,9 @@
   input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
   .ltr { direction: ltr; }
   [dir=rtl] .ltr { text-align: right; }
+  .scanrow { display: flex; gap: 8px; }
+  .scanrow input { flex: 1; min-width: 0; }
+  .btn.scan { flex: none; background: var(--ready-bg); color: var(--ready); border-color: var(--ready); font-weight: 600; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
   .err { color: var(--danger); font-size: 14px; min-height: 1.2em; margin-top: 6px; }
@@ -123,9 +127,16 @@
     <input id="fName" autocomplete="off">
     <label for="fMobile" data-t="mobile"></label>
     <input id="fMobile" class="ltr" type="tel" inputmode="tel" autocomplete="off" placeholder="05xxxxxxxx">
+    <label for="fInvoice" data-t="invoice"></label>
+    <div class="scanrow">
+      <input id="fInvoice" class="ltr" inputmode="numeric" autocomplete="off">
+      <button type="button" class="btn scan" id="scanBtn" hidden><span aria-hidden="true">📷</span> <span data-t="scan"></span></button>
+      <input type="file" id="scanFile" accept="image/*" capture="environment" hidden>
+    </div>
+    <div class="hint" id="scanStatus" role="status"></div>
     <div class="row2">
       <div><label for="fBook" data-t="book"></label><input id="fBook" class="ltr" inputmode="numeric" autocomplete="off"></div>
-      <div><label for="fInvoice" data-t="invoice"></label><input id="fInvoice" class="ltr" inputmode="numeric" autocomplete="off"></div>
+      <div><label for="fInvDate" data-t="invDate"></label><input id="fInvDate" type="date"></div>
     </div>
     <div class="row2">
       <div><label for="fStatus" data-t="status"></label>
@@ -135,6 +146,10 @@
           <option value="delivered" data-t="delivered"></option>
         </select></div>
       <div><label for="fDue" data-t="dueDate"></label><input id="fDue" type="date"></div>
+    </div>
+    <div class="row2">
+      <div><label for="fCleared" data-t="clearedDate"></label><input id="fCleared" type="date"></div>
+      <div></div>
     </div>
     <label for="fNotes" data-t="notes"></label>
     <textarea id="fNotes" rows="2"></textarea>
@@ -194,6 +209,10 @@
       dir: "ltr", appTitle: "Tailor Orders", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
+      invDate: "Invoice date", clearedDate: "Cleared date", invDateShort: "Invoice date", clearedShort: "Cleared",
+      scan: "Scan", scanning: "Reading the invoice…", scanDone: "Filled from the photo. Please check the numbers.",
+      scanNone: "Couldn't find an invoice number in the photo. Try again closer, or type it.",
+      scanErr: "Couldn't read the photo right now. Type the number instead.",
       pending: "In progress", ready: "Thobe is ready", delivered: "Delivered",
       markReady: "✓ Thobe is ready", markDelivered: "Delivered", notify: "WhatsApp", call: "Call", copy: "Copy no.",
       edit: "Edit", del: "Delete", save: "Save", cancel: "Cancel", done: "Done",
@@ -217,6 +236,10 @@
       dir: "rtl", appTitle: "طلبات الخياط", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
+      invDate: "تاريخ الفاتورة", clearedDate: "تاريخ الإغلاق", invDateShort: "تاريخ الفاتورة", clearedShort: "أُغلق",
+      scan: "تصوير", scanning: "جارٍ قراءة الفاتورة…", scanDone: "تمت التعبئة من الصورة. يرجى مراجعة الأرقام.",
+      scanNone: "لم يُعثر على رقم فاتورة في الصورة. صوّر من مسافة أقرب أو اكتب الرقم.",
+      scanErr: "تعذّرت قراءة الصورة الآن. اكتب الرقم يدوياً.",
       pending: "قيد التفصيل", ready: "الثوب جاهز", delivered: "تم التسليم",
       markReady: "✓ الثوب جاهز", markDelivered: "تم التسليم", notify: "واتساب", call: "اتصال", copy: "نسخ الرقم",
       edit: "تعديل", del: "حذف", save: "حفظ", cancel: "إلغاء", done: "تم",
@@ -240,6 +263,10 @@
       dir: "rtl", appTitle: "درزی کے آرڈر", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
+      invDate: "انوائس کی تاریخ", clearedDate: "کلیئر ہونے کی تاریخ", invDateShort: "انوائس تاریخ", clearedShort: "کلیئر",
+      scan: "اسکین", scanning: "انوائس پڑھی جا رہی ہے…", scanDone: "تصویر سے بھر دیا گیا۔ براہ کرم نمبر چیک کریں۔",
+      scanNone: "تصویر میں انوائس نمبر نہیں ملا۔ قریب سے دوبارہ لیں یا نمبر لکھ دیں۔",
+      scanErr: "ابھی تصویر نہیں پڑھی جا سکی۔ نمبر خود لکھ دیں۔",
       pending: "سلائی جاری ہے", ready: "تھوب تیار ہے", delivered: "دے دیا گیا",
       markReady: "✓ تھوب تیار ہے", markDelivered: "دے دیا گیا", notify: "واٹس ایپ", call: "کال", copy: "نمبر کاپی",
       edit: "ترمیم", del: "حذف", save: "محفوظ کریں", cancel: "منسوخ", done: "ٹھیک ہے",
@@ -282,6 +309,8 @@
   const t = (k) => I18N[prefs.lang][k];
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const digits = (s) => String(s || "").replace(/\D/g, "");
+  const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  let sample = null, canScan = false;
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   function toast(msg) {
@@ -326,6 +355,14 @@
     shopRef = db.doc("config/shop");
 
     window.claude.use("downloads").then((d) => { downloads = d; });
+    window.claude.use("sample").then(async (s) => {
+      if (!s) return;
+      const caps = await s.limits().catch(() => null);
+      if (!caps || !caps.images) return;
+      sample = s; canScan = true;
+      $("scanFile").accept = caps.images.mediaTypes.join(",") || "image/*";
+      if ($("orderDlg").open) $("scanBtn").hidden = false;
+    });
     window.claude.use("user").then(async (u) => {
       const can = u ? await u.can("data.write") : null;
       if (can === false) { readOnly = true; setNote("noteReadOnly"); render(); }
@@ -403,7 +440,9 @@
           <div>${esc(t("mobile"))}: <b dir="ltr">${esc(o.mobile)}</b></div>
           <div>${esc(t("invoice"))}: <b dir="ltr">${esc(o.invoice)}</b></div>
           ${o.book ? `<div>${esc(t("book"))}: <b dir="ltr">${esc(o.book)}</b></div>` : ""}
+          ${o.invDate ? `<div>${esc(t("invDateShort"))}: <b dir="ltr">${esc(o.invDate)}</b></div>` : ""}
           ${o.due ? `<div>${esc(t("due"))}: <b dir="ltr">${esc(o.due)}</b></div>` : ""}
+          ${o.cleared ? `<div>${esc(t("clearedShort"))}: <b dir="ltr">${esc(o.cleared)}</b></div>` : ""}
           ${o.notes ? `<div class="wide">${esc(t("notes"))}: <b>${esc(o.notes)}</b></div>` : ""}
         </div>
         <div class="actions">
@@ -427,7 +466,8 @@
     const act = el.dataset.act;
     if (act === "ready" || act === "delivered") {
       el.disabled = true;
-      try { await saveOrder({ ...o, status: act, updated: Date.now() }); if (act === "ready") toast(t("markedReady")); }
+      const extra = act === "delivered" && !o.cleared ? { cleared: today() } : {};
+      try { await saveOrder({ ...o, ...extra, status: act, updated: Date.now() }); if (act === "ready") toast(t("markedReady")); }
       catch (err) { el.disabled = false; writeFailed(err); }
     } else if (act === "copy") {
       try { await navigator.clipboard.writeText(o.mobile); toast(t("copied")); }
@@ -452,7 +492,11 @@
     $("fStatus").value = o?.status || "pending";
     $("fDue").value = o?.due || "";
     $("fNotes").value = o?.notes || "";
+    $("fInvDate").value = o ? (o.invDate || "") : today();
+    $("fCleared").value = o?.cleared || "";
     $("formErr").textContent = "";
+    $("scanStatus").textContent = "";
+    $("scanBtn").hidden = !canScan;
     $("orderDlg").showModal();
   }
   $("addBtn").onclick = () => openOrder(null);
@@ -462,8 +506,10 @@
     e.preventDefault();
     const data = {
       name: $("fName").value.trim(), mobile: $("fMobile").value.trim(), book: $("fBook").value.trim(),
-      invoice: $("fInvoice").value.trim(), status: $("fStatus").value, due: $("fDue").value, notes: $("fNotes").value.trim()
+      invoice: $("fInvoice").value.trim(), status: $("fStatus").value, due: $("fDue").value, notes: $("fNotes").value.trim(),
+      invDate: $("fInvDate").value, cleared: $("fCleared").value
     };
+    if (data.status === "delivered" && !data.cleared) data.cleared = today();
     if (!data.name || !data.mobile || !data.invoice) { $("formErr").textContent = t("errRequired"); return; }
     if (orders.some((o) => o.invoice === data.invoice && o.id !== editingId)) { $("formErr").textContent = t("errDupInvoice"); return; }
     const prev = editingId ? orders.find((o) => o.id === editingId) : null;
@@ -472,6 +518,52 @@
     try { await saveOrder(o); $("orderDlg").close(); toast(t("saved")); }
     catch (err) { $("orderDlg").close(); writeFailed(err); }
     finally { $("saveOrder").disabled = false; }
+  });
+
+  // ---------- scan invoice with the camera ----------
+  async function shrink(file) {
+    try {
+      const img = await createImageBitmap(file);
+      const k = Math.min(1, 1800 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+      return blob || file;
+    } catch { return file; }
+  }
+  const asDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")) ? String(s) : "";
+  const westernDigits = (s) => String(s ?? "").replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).trim();
+
+  $("scanBtn").onclick = () => $("scanFile").click();
+  $("scanFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file || !sample) return;
+    const status = $("scanStatus");
+    $("scanBtn").disabled = true; status.textContent = t("scanning");
+    try {
+      const img = await shrink(file);
+      const r = await sample.json(
+        "The image is a photo of a tailor shop invoice or receipt (it may be in Arabic, English or Urdu, handwritten or printed). " +
+        "Read it and return ONLY a JSON object with these keys: " +
+        '{"invoice": the invoice/receipt number as a string of digits (look for labels like Invoice No, رقم الفاتورة, فاتورة رقم, No., انوائس نمبر), ' +
+        '"date": the invoice date as YYYY-MM-DD (convert Hijri to Gregorian only if you are sure, otherwise empty), ' +
+        '"name": the customer name if written, "mobile": the customer mobile number if written, "book": a book/booklet number if written}. ' +
+        "Use Western digits 0-9. Use an empty string for anything you cannot read clearly. Do not guess.",
+        { images: [img], modelTier: "default", cache: false }
+      );
+      const inv = westernDigits(r && r.invoice);
+      if (!inv) { status.textContent = t("scanNone"); return; }
+      $("fInvoice").value = inv;
+      const d = asDate(westernDigits(r.date)); if (d) $("fInvDate").value = d;
+      if (!$("fName").value.trim() && r.name) $("fName").value = String(r.name).trim();
+      if (!$("fMobile").value.trim() && r.mobile) $("fMobile").value = westernDigits(r.mobile);
+      if (!$("fBook").value.trim() && r.book) $("fBook").value = westernDigits(r.book);
+      status.textContent = t("scanDone");
+    } catch (err) {
+      if (err && err.code === "not_granted") { canScan = false; $("scanBtn").hidden = true; status.textContent = ""; }
+      else status.textContent = err && err.code === "invalid_json" ? t("scanNone") : t("scanErr");
+    } finally { $("scanBtn").disabled = false; }
   });
 
   document.querySelectorAll(".stat").forEach((s) => s.addEventListener("click", () => {
@@ -521,7 +613,7 @@
         if (!o || !o.id || !o.name || !o.invoice) continue;
         await saveOrder({ id: String(o.id), name: String(o.name), mobile: String(o.mobile || ""), book: String(o.book || ""),
           invoice: String(o.invoice), status: ["pending", "ready", "delivered"].includes(o.status) ? o.status : "pending",
-          due: String(o.due || ""), notes: String(o.notes || ""), created: Number(o.created) || Date.now(), updated: Number(o.updated) || Date.now() });
+          due: String(o.due || ""), notes: String(o.notes || ""), invDate: String(o.invDate || ""), cleared: String(o.cleared || ""), created: Number(o.created) || Date.now(), updated: Number(o.updated) || Date.now() });
       }
       toast(t("imported"));
     } catch (err) { writeFailed(err); }

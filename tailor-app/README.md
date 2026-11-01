@@ -21,3 +21,8 @@ Orders are kept in an online database, so every phone and computer that opens th
 sees the same list and updates live. To let staff add or update orders, share the page
 with them as **Contributor** (Viewers cannot see customer data).
 If the database can't be reached, the page falls back to saving on the device.
+
+When adding an order, the **📷 Scan** button opens the camera; Claude reads the invoice photo and fills in the
+invoice number (and the invoice date, name, mobile and book number when they are written on it).
+Each order also records an **invoice date** (defaults to today) and a **cleared date** (filled in automatically
+when the order is marked Delivered).
