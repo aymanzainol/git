@@ -113,6 +113,7 @@ function cleanOrder(id, o) {
   return {
     id,
     name: str(o.name, 120), mobile: str(o.mobile, 30), book: str(o.book, 30), invoice: str(o.invoice, 40),
+    qty: Math.min(99, Math.max(1, parseInt(o.qty, 10) || 1)),
     status: STATUSES.includes(o.status) ? o.status : "pending",
     due: date(o.due), invDate: date(o.invDate), readyDate: date(o.readyDate), cleared: date(o.cleared),
     notes: str(o.notes, 1000),
@@ -152,7 +153,8 @@ const SCAN_PROMPT =
   "Read it and return ONLY a JSON object with these keys: " +
   '{"invoice": the invoice/receipt number as a string of digits (look for labels like Invoice No, رقم الفاتورة, فاتورة رقم, No., انوائس نمبر), ' +
   '"date": the invoice date as YYYY-MM-DD (convert Hijri to Gregorian only if you are sure, otherwise empty), ' +
-  '"name": the customer name if written, "mobile": the customer mobile number if written, "book": a book/booklet number if written}. ' +
+  '"name": the customer name if written, "mobile": the customer mobile number if written, "book": a book/booklet number if written, ' +
+  '"qty": the number of thobes ordered as a whole number if written (for example from a quantity column), else empty}. ' +
   "The shop's own phone numbers (056 391 8278, 056 071 6819) are never the customer's mobile. " +
   "Use Western digits 0-9. Use an empty string for anything you cannot read clearly. Do not guess.";
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -178,7 +180,7 @@ async function scanInvoice(image, mediaType) {
   if (!m) return {};
   try {
     const r = JSON.parse(m[0]);
-    return { invoice: str(r.invoice, 40), date: str(r.date, 10), name: str(r.name, 120), mobile: str(r.mobile, 30), book: str(r.book, 30) };
+    return { invoice: str(r.invoice, 40), date: str(r.date, 10), name: str(r.name, 120), mobile: str(r.mobile, 30), book: str(r.book, 30), qty: str(r.qty, 3) };
   } catch { return {}; }
 }
 
