@@ -1,0 +1,12 @@
+{
+  "name": "Salar Men's Tailoring – Orders",
+  "short_name": "Salar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1f2d58",
+  "theme_color": "#1f2d58",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

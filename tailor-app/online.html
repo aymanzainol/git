@@ -136,6 +136,7 @@
   .overdue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
   .overdue li { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-block: 4px; }
   .overdue li span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .loginlogo { display: block; width: 72px; height: 72px; border-radius: 16px; margin: 0 auto 8px; }
   .scanrow { display: flex; gap: 8px; }
   .scanrow input { flex: 1; min-width: 0; }
   .btn.scan { flex: none; background: var(--ready-bg); color: var(--ready); border-color: var(--ready); font-weight: 600; }
@@ -300,6 +301,19 @@
   </form>
 </dialog>
 
+<dialog id="loginDlg">
+  <form class="dlg" id="loginForm" novalidate>
+    <img class="loginlogo" id="loginLogo" alt="Salar" hidden>
+    <h2 data-t="loginTitle"></h2>
+    <label for="loginPw" data-t="password"></label>
+    <input id="loginPw" type="password" autocomplete="current-password">
+    <div class="err" id="loginErr"></div>
+    <div class="dlg-actions">
+      <button type="submit" class="btn primary" id="loginBtn" data-t="loginBtn"></button>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -307,6 +321,7 @@
   const I18N = {
     en: {
       dir: "ltr", tabOrders: "Orders", tabReport: "Report", day: "Daily", week: "Weekly", month: "Monthly", kNew: "New orders", kReady: "Thobes ready", kDelivered: "Delivered", kAvg: "Avg. days to deliver", daysU: "days", nowTitle: "Right now", kWaiting: "Waiting for pickup", kOverdue: "Overdue", chartTitle: "New orders and deliveries", legNew: "New orders", legDel: "Delivered", periodCol: "Period", overdueTitle: "Past their due date", noOverdue: "No overdue orders.", today: "Today", thisWeek: "This week", thisMonth: "This month", weekOf: "Week of", locale: "en-GB",
+      loginTitle: "Sign in to Salar Orders", password: "Shop password", loginBtn: "Sign in", loginWrong: "That password is not correct.", loginTooMany: "Too many tries. Wait 15 minutes and try again.",
       appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
@@ -335,6 +350,7 @@
     },
     ar: {
       dir: "rtl", tabOrders: "الطلبات", tabReport: "التقارير", day: "يومي", week: "أسبوعي", month: "شهري", kNew: "طلبات جديدة", kReady: "ثياب جاهزة", kDelivered: "تم تسليمها", kAvg: "متوسط أيام التسليم", daysU: "يوم", nowTitle: "الوضع الآن", kWaiting: "بانتظار الاستلام", kOverdue: "متأخرة", chartTitle: "الطلبات الجديدة والتسليم", legNew: "طلبات جديدة", legDel: "تم التسليم", periodCol: "الفترة", overdueTitle: "طلبات تجاوزت موعد التسليم", noOverdue: "لا توجد طلبات متأخرة.", today: "اليوم", thisWeek: "هذا الأسبوع", thisMonth: "هذا الشهر", weekOf: "أسبوع", locale: "ar-SA-u-ca-gregory-nu-latn",
+      loginTitle: "تسجيل الدخول إلى طلبات سالار", password: "كلمة مرور المحل", loginBtn: "دخول", loginWrong: "كلمة المرور غير صحيحة.", loginTooMany: "محاولات كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.",
       appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
@@ -363,6 +379,7 @@
     },
     ur: {
       dir: "rtl", tabOrders: "آرڈر", tabReport: "رپورٹ", day: "روزانہ", week: "ہفتہ وار", month: "ماہانہ", kNew: "نئے آرڈر", kReady: "تیار تھوب", kDelivered: "دے دیے گئے", kAvg: "ڈیلیوری کے اوسط دن", daysU: "دن", nowTitle: "ابھی کی صورتحال", kWaiting: "وصولی کے منتظر", kOverdue: "تاخیر شدہ", chartTitle: "نئے آرڈر اور ڈیلیوری", legNew: "نئے آرڈر", legDel: "دے دیے گئے", periodCol: "مدت", overdueTitle: "تاریخ گزر چکے آرڈر", noOverdue: "کوئی آرڈر تاخیر میں نہیں۔", today: "آج", thisWeek: "اس ہفتے", thisMonth: "اس مہینے", weekOf: "ہفتہ", locale: "ur-PK-u-nu-latn",
+      loginTitle: "سالار آرڈر میں سائن اِن کریں", password: "دکان کا پاس ورڈ", loginBtn: "سائن اِن", loginWrong: "پاس ورڈ درست نہیں ہے۔", loginTooMany: "بہت زیادہ کوششیں۔ 15 منٹ انتظار کر کے دوبارہ کوشش کریں۔",
       appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
@@ -425,21 +442,36 @@
   function setNote(key) { noteKey = key; const n = $("note"); n.hidden = !key; if (key) n.textContent = t(key); }
 
   // ---------- storage ----------
+  // Server mode (Railway): a small REST API with a shop password.
+  async function api(method, url, body) {
+    const r = await fetch(url, { method, credentials: "same-origin", headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401) { showLogin(); throw { code: "login" }; }
+    if (!r.ok) throw { code: "http_" + r.status };
+    return r.json();
+  }
+  function upsertLocal(o) {
+    const i = orders.findIndex((x) => x.id === o.id);
+    if (i >= 0) orders[i] = o; else orders.push(o);
+  }
   async function saveOrder(o) {
     if (mode === "cloud") { await ordersCol.doc(o.id).set(o); return; }
+    if (mode === "server") { upsertLocal(await api("PUT", "api/orders/" + encodeURIComponent(o.id), o)); render(); return; }
     const i = orders.findIndex((x) => x.id === o.id);
     if (i >= 0) orders[i] = o; else orders.push(o);
     store(LKEY, orders); render();
   }
   async function removeOrder(id) {
     if (mode === "cloud") { await ordersCol.doc(id).delete(); return; }
+    if (mode === "server") { await api("DELETE", "api/orders/" + encodeURIComponent(id)); orders = orders.filter((x) => x.id !== id); render(); return; }
     orders = orders.filter((x) => x.id !== id); store(LKEY, orders); render();
   }
   async function saveShop() {
     store(CKEY, shop);
     if (mode === "cloud") await shopRef.set({ shop: shop.shop, code: shop.code });
+    if (mode === "server") await api("PUT", "api/config", { shop: shop.shop, code: shop.code });
   }
   function writeFailed(e) {
+    if (e && e.code === "login") return;
     if (e && (e.code === "invalid_argument" || e.code === "not_granted" || e.code === "revoked")) {
       readOnly = true; setNote("noteReadOnly"); render();
     } else toast(t("saveErr"));
@@ -449,8 +481,62 @@
     mode = "local"; orders = load(LKEY, []); setNote("noteLocal"); applyLang();
   }
 
+  // ---------- server mode ----------
+  let serverScan = false, pollTimer = null;
+  async function pullState() {
+    try {
+      const st = await api("GET", "api/state");
+      orders = st.orders || [];
+      if (st.config) { shop = { shop: String(st.config.shop || ""), code: String(st.config.code || "966") }; store(CKEY, shop); }
+      serverScan = !!st.scan; canScan = serverScan;
+      loaded = true;
+      if (noteKey === "noteSlow") setNote(null);
+      applyLang();
+      return true;
+    } catch (e) {
+      if (e && e.code !== "login") setNote("noteSlow");
+      return false;
+    }
+  }
+  async function initServer() {
+    let probe;
+    try { probe = await fetch("api/state", { credentials: "same-origin" }); } catch { return false; }
+    if (probe.status !== 200 && probe.status !== 401) return false;
+    mode = "server";
+    if (probe.status === 401) { applyLang(); showLogin(); return true; }
+    await pullState();
+    startPolling();
+    return true;
+  }
+  function startPolling() {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => { if (!document.hidden) pullState(); }, 20000);
+  }
+  document.addEventListener("visibilitychange", () => { if (mode === "server" && !document.hidden) pullState(); });
+
+  function showLogin() {
+    if ($("loginDlg").open) return;
+    const lg = $("loginLogo"); if (!lg.src) { lg.onload = () => { lg.hidden = false; }; lg.src = "icon-192.png"; }
+    $("loginErr").textContent = ""; $("loginPw").value = "";
+    $("loginDlg").showModal(); $("loginPw").focus();
+  }
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("loginBtn").disabled = true; $("loginErr").textContent = "";
+    try {
+      const r = await fetch("api/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("loginPw").value }) });
+      if (r.ok) { $("loginDlg").close(); await pullState(); startPolling(); }
+      else $("loginErr").textContent = r.status === 429 ? t("loginTooMany") : t("loginWrong");
+    } catch { $("loginErr").textContent = t("saveErr"); }
+    finally { $("loginBtn").disabled = false; }
+  });
+  $("loginDlg").addEventListener("cancel", (e) => e.preventDefault());
+
   async function initCloud() {
-    if (!window.claude || typeof window.claude.use !== "function") return goLocal();
+    if (!window.claude || typeof window.claude.use !== "function") {
+      if (location.protocol.startsWith("http") && await initServer()) return;
+      return goLocal();
+    }
     const db = await window.claude.use("db");
     if (!db) return goLocal();
     mode = "cloud";
@@ -494,7 +580,7 @@
     $("search").placeholder = L.search;
     document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = L[el.dataset.t]; });
     document.querySelectorAll(".langs button").forEach((b) => b.classList.toggle("on", b.dataset.lang === prefs.lang));
-    $("backupHint").textContent = mode === "cloud" ? L.hintCloud : L.hintLocal;
+    $("backupHint").textContent = mode === "cloud" || mode === "server" ? L.hintCloud : L.hintLocal;
     if (noteKey) setNote(noteKey);
     render();
   }
@@ -521,7 +607,7 @@
     if (view === "report") renderReport();
 
     const list = $("list");
-    if (mode === "loading" || (mode === "cloud" && !loaded && !orders.length)) {
+    if (mode === "loading" || ((mode === "cloud" || mode === "server") && !loaded && !orders.length)) {
       list.innerHTML = `<div class="empty">${esc(t("loading"))}</div>`; return;
     }
     const q = $("search").value.trim().toLowerCase();
@@ -771,15 +857,24 @@
   const asDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")) ? String(s) : "";
   const westernDigits = (s) => String(s ?? "").replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).trim();
 
+  async function scanOnServer(img) {
+    const b64 = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result).split(",")[1]);
+      fr.onerror = reject; fr.readAsDataURL(img);
+    });
+    try { return await api("POST", "api/scan", { image: b64, type: img.type || "image/jpeg" }); }
+    catch (e) { throw { code: e && e.code === "login" ? "login" : "upstream_error" }; }
+  }
   $("scanBtn").onclick = () => $("scanFile").click();
   $("scanFile").addEventListener("change", async (e) => {
     const file = e.target.files[0]; e.target.value = "";
-    if (!file || !sample) return;
+    if (!file || (!sample && mode !== "server")) return;
     const status = $("scanStatus");
     $("scanBtn").disabled = true; status.textContent = t("scanning");
     try {
       const img = await shrink(file);
-      const r = await sample.json(
+      const r = mode === "server" ? await scanOnServer(img) : await sample.json(
         "The image is a photo of a tailor shop invoice or receipt (it may be in Arabic, English or Urdu, handwritten or printed). " +
         "Read it and return ONLY a JSON object with these keys: " +
         '{"invoice": the invoice/receipt number as a string of digits (look for labels like Invoice No, رقم الفاتورة, فاتورة رقم, No., انوائس نمبر), ' +
