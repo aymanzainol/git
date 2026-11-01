@@ -16,6 +16,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import zlib from "node:zlib";
 import Anthropic from "@anthropic-ai/sdk";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -40,9 +41,10 @@ const SKELETON_HEAD = `<!doctype html><html lang="ar" dir="rtl"><head><meta char
 <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
 </head><body>`;
-function pageHtml() {
-  return SKELETON_HEAD + fs.readFileSync(path.join(here, "online.html"), "utf8") + "</body></html>";
-}
+// The page is built once at start-up and kept compressed in memory.
+const PAGE = SKELETON_HEAD + fs.readFileSync(path.join(here, "online.html"), "utf8") + "</body></html>";
+const PAGE_GZ = zlib.gzipSync(PAGE, { level: 9 });
+const PAGE_ETAG = '"' + crypto.createHash("sha1").update(PAGE).digest("base64url").slice(0, 16) + '"';
 const STATIC = {
   "/manifest.webmanifest": ["manifest.webmanifest", "application/manifest+json"],
   "/icon-192.png": ["brand/icon-192.png", "image/png"],
@@ -185,7 +187,13 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
   try {
     if (req.method === "GET" && (p === "/" || p === "/index.html")) {
-      return send(res, 200, pageHtml(), {
+      if (req.headers["if-none-match"] === PAGE_ETAG) { res.writeHead(304, { ETag: PAGE_ETAG }); return res.end(); }
+      const gz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+      return send(res, 200, gz ? PAGE_GZ : PAGE, {
+        ...(gz ? { "Content-Encoding": "gzip" } : {}),
+        "Vary": "Accept-Encoding",
+        "ETag": PAGE_ETAG,
+        "Cache-Control": "no-cache",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob: data: https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; frame-ancestors 'none'",
         "Referrer-Policy": "no-referrer",
