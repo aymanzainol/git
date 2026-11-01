@@ -22,6 +22,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || "/data";
 const DATA_FILE = path.join(DATA_DIR, "orders.json");
+const PHOTO_DIR = path.join(DATA_DIR, "photos");
+const PHOTO_EXT = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
 const PASSWORD = process.env.APP_PASSWORD || "";
 const SECRET = process.env.SESSION_SECRET || crypto.createHash("sha256").update("salar:" + PASSWORD).digest("hex");
 const COOKIE = "salar_session";
@@ -67,6 +69,10 @@ function persist() {
   return writing;
 }
 
+async function removePhoto(id) {
+  for (const ext of Object.values(PHOTO_EXT)) await fsp.rm(path.join(PHOTO_DIR, id + ext), { force: true });
+}
+
 // ---------- auth ----------
 const sign = (v) => crypto.createHmac("sha256", SECRET).update(v).digest("base64url");
 function makeToken() {
@@ -107,6 +113,7 @@ function cleanOrder(id, o) {
     status: STATUSES.includes(o.status) ? o.status : "pending",
     due: date(o.due), invDate: date(o.invDate), readyDate: date(o.readyDate), cleared: date(o.cleared),
     notes: str(o.notes, 1000),
+    photo: Number(state.orders[id]?.photo) || 0,
     created: Number(o.created) || Date.now(), updated: Number(o.updated) || Date.now(),
   };
 }
@@ -143,6 +150,7 @@ const SCAN_PROMPT =
   '{"invoice": the invoice/receipt number as a string of digits (look for labels like Invoice No, رقم الفاتورة, فاتورة رقم, No., انوائس نمبر), ' +
   '"date": the invoice date as YYYY-MM-DD (convert Hijri to Gregorian only if you are sure, otherwise empty), ' +
   '"name": the customer name if written, "mobile": the customer mobile number if written, "book": a book/booklet number if written}. ' +
+  "The shop's own phone numbers (056 391 8278, 056 071 6819) are never the customer's mobile. " +
   "Use Western digits 0-9. Use an empty string for anything you cannot read clearly. Do not guess.";
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
@@ -179,7 +187,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && (p === "/" || p === "/index.html")) {
       return send(res, 200, pageHtml(), {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' blob: data: https://cdn.jsdelivr.net https://tessdata.projectnaptha.com; frame-ancestors 'none'",
         "Referrer-Policy": "no-referrer",
       });
     }
@@ -188,6 +196,16 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, fs.readFileSync(path.join(here, file)), { "Content-Type": type, "Cache-Control": "public, max-age=86400" });
     }
     if (p === "/health") return send(res, 200, { ok: true });
+    const ph = req.method === "GET" && p.match(/^\/photos\/([^/]+)$/);
+    if (ph) {
+      const id = decodeURIComponent(ph[1]);
+      if (!ID_RE.test(id)) return send(res, 404, "Not found");
+      for (const [type, ext] of Object.entries(PHOTO_EXT)) {
+        const f = path.join(PHOTO_DIR, id + ext);
+        if (fs.existsSync(f)) return send(res, 200, fs.readFileSync(f), { "Content-Type": type, "Cache-Control": "private, max-age=31536000" });
+      }
+      return send(res, 404, "Not found");
+    }
 
     if (!p.startsWith("/api/")) return send(res, 404, "Not found");
 
@@ -227,8 +245,25 @@ const server = http.createServer(async (req, res) => {
       if (req.method === "DELETE") {
         delete state.orders[id];
         await persist();
+        await removePhoto(id);
         return send(res, 200, { ok: true });
       }
+    }
+    const pm = p.match(/^\/api\/photos\/([^/]+)$/);
+    if (pm && req.method === "PUT") {
+      const id = decodeURIComponent(pm[1]);
+      if (!ID_RE.test(id) || !state.orders[id]) return send(res, 404, { error: "no_such_order" });
+      const b = await readBody(req, 12 * 1024 * 1024);
+      const ext = PHOTO_EXT[b.type];
+      if (!ext || typeof b.image !== "string" || !b.image) return send(res, 400, { error: "bad_image" });
+      const buf = Buffer.from(b.image, "base64");
+      if (!buf.length || buf.length > 8 * 1024 * 1024) return send(res, 400, { error: "bad_image" });
+      await fsp.mkdir(PHOTO_DIR, { recursive: true });
+      await removePhoto(id);
+      await fsp.writeFile(path.join(PHOTO_DIR, id + ext), buf);
+      state.orders[id] = { ...state.orders[id], photo: Date.now() };
+      await persist();
+      return send(res, 200, state.orders[id]);
     }
     if (p === "/api/config" && req.method === "PUT") {
       const b = await readBody(req, 4096);

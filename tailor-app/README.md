@@ -38,7 +38,12 @@ and a "Right now" panel shows orders in progress, waiting for pickup and overdue
 - Orders are kept in `orders.json` on a Railway volume mounted at `/data`.
 - Orders open without a password for anyone with the link. Only the **Report** tab asks for the
   password (`APP_PASSWORD`); it stays unlocked on that device for 90 days, or until **Lock** is tapped.
-- The **Scan** button works when `ANTHROPIC_API_KEY` is set (Claude reads the invoice photo).
+- The **📷 Photo** button takes a picture of the invoice. The photo is saved with the order (in
+  `/data/photos`) and can be opened from the order card with **Invoice photo**.
+- The photo is also read automatically (OCR) to fill in the invoice number, date and mobile:
+  with `ANTHROPIC_API_KEY` set, Claude reads it (best, handles handwriting); without a key, a
+  free built-in reader (Tesseract) runs on the phone, which works well on printed numbers.
+  The shop's own phone numbers are never taken as the customer's mobile.
 - The page can be added to the phone's home screen (it has an app icon).
 
 Variables: `APP_PASSWORD` (required, the report password), `ANTHROPIC_API_KEY` (optional), `DATA_DIR` (default `/data`).

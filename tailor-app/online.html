@@ -139,6 +139,10 @@
   .overdue li span { color: var(--muted); font-variant-numeric: tabular-nums; }
   .loginlogo { display: block; width: 72px; height: 72px; border-radius: 16px; margin: 0 auto 8px; }
   .scanrow { display: flex; gap: 8px; }
+  .photoprev { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; color: var(--ready); }
+  .photoprev img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+  .photodlg { width: min(720px, calc(100vw - 24px)); }
+  #photoImg { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; border-radius: 8px; background: var(--bg); }
   .scanrow input { flex: 1; min-width: 0; }
   .btn.scan { flex: none; background: var(--ready-bg); color: var(--ready); border-color: var(--ready); font-weight: 600; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -237,6 +241,7 @@
       <input type="file" id="scanFile" accept="image/*" capture="environment" hidden>
     </div>
     <div class="hint" id="scanStatus" role="status"></div>
+    <div class="photoprev" id="photoPrev" hidden><img id="photoPrevImg" alt=""><span data-t="photoAttached"></span></div>
     <div class="row2">
       <div><label for="fBook" data-t="book"></label><input id="fBook" class="ltr" inputmode="numeric" autocomplete="off"></div>
       <div><label for="fInvDate" data-t="invDate"></label><input id="fInvDate" type="date"></div>
@@ -303,6 +308,14 @@
   </form>
 </dialog>
 
+<dialog id="photoDlg" class="photodlg">
+  <div class="dlg">
+    <h2 id="photoTitle"></h2>
+    <img id="photoImg" alt="">
+    <div class="dlg-actions"><button type="button" class="btn primary" id="photoClose" data-t="done"></button></div>
+  </div>
+</dialog>
+
 <dialog id="loginDlg">
   <form class="dlg" id="loginForm" novalidate>
     <img class="loginlogo" id="loginLogo" alt="Salar" hidden>
@@ -325,6 +338,8 @@
     en: {
       dir: "ltr", tabOrders: "Orders", tabReport: "Report", day: "Daily", week: "Weekly", month: "Monthly", kNew: "New orders", kReady: "Thobes ready", kDelivered: "Delivered", kAvg: "Avg. days to deliver", daysU: "days", nowTitle: "Right now", kWaiting: "Waiting for pickup", kOverdue: "Overdue", chartTitle: "New orders and deliveries", legNew: "New orders", legDel: "Delivered", periodCol: "Period", overdueTitle: "Past their due date", noOverdue: "No overdue orders.", today: "Today", thisWeek: "This week", thisMonth: "This month", weekOf: "Week of", locale: "en-GB",
       loginTitle: "Report password", password: "Password", loginBtn: "Open report", lock: "Lock", loginWrong: "That password is not correct.", loginTooMany: "Too many tries. Wait 15 minutes and try again.",
+      photoAttached: "Invoice photo attached", viewPhoto: "Invoice photo", photoSaveErr: "The order was saved, but the photo could not be uploaded. Open Edit and take the photo again.",
+      ocrLoading: "Getting the reader ready… (the first time takes longer)",
       appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
@@ -354,6 +369,8 @@
     ar: {
       dir: "rtl", tabOrders: "الطلبات", tabReport: "التقارير", day: "يومي", week: "أسبوعي", month: "شهري", kNew: "طلبات جديدة", kReady: "ثياب جاهزة", kDelivered: "تم تسليمها", kAvg: "متوسط أيام التسليم", daysU: "يوم", nowTitle: "الوضع الآن", kWaiting: "بانتظار الاستلام", kOverdue: "متأخرة", chartTitle: "الطلبات الجديدة والتسليم", legNew: "طلبات جديدة", legDel: "تم التسليم", periodCol: "الفترة", overdueTitle: "طلبات تجاوزت موعد التسليم", noOverdue: "لا توجد طلبات متأخرة.", today: "اليوم", thisWeek: "هذا الأسبوع", thisMonth: "هذا الشهر", weekOf: "أسبوع", locale: "ar-SA-u-ca-gregory-nu-latn",
       loginTitle: "كلمة مرور التقارير", password: "كلمة المرور", loginBtn: "فتح التقارير", lock: "قفل", loginWrong: "كلمة المرور غير صحيحة.", loginTooMany: "محاولات كثيرة. انتظر ١٥ دقيقة ثم حاول مرة أخرى.",
+      photoAttached: "تم إرفاق صورة الفاتورة", viewPhoto: "صورة الفاتورة", photoSaveErr: "تم حفظ الطلب لكن تعذّر رفع الصورة. افتح «تعديل» وصوّر الفاتورة مرة أخرى.",
+      ocrLoading: "جارٍ تجهيز قارئ الصور… (أول مرة تستغرق وقتاً أطول)",
       appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
@@ -383,6 +400,8 @@
     ur: {
       dir: "rtl", tabOrders: "آرڈر", tabReport: "رپورٹ", day: "روزانہ", week: "ہفتہ وار", month: "ماہانہ", kNew: "نئے آرڈر", kReady: "تیار تھوب", kDelivered: "دے دیے گئے", kAvg: "ڈیلیوری کے اوسط دن", daysU: "دن", nowTitle: "ابھی کی صورتحال", kWaiting: "وصولی کے منتظر", kOverdue: "تاخیر شدہ", chartTitle: "نئے آرڈر اور ڈیلیوری", legNew: "نئے آرڈر", legDel: "دے دیے گئے", periodCol: "مدت", overdueTitle: "تاریخ گزر چکے آرڈر", noOverdue: "کوئی آرڈر تاخیر میں نہیں۔", today: "آج", thisWeek: "اس ہفتے", thisMonth: "اس مہینے", weekOf: "ہفتہ", locale: "ur-PK-u-nu-latn",
       loginTitle: "رپورٹ کا پاس ورڈ", password: "پاس ورڈ", loginBtn: "رپورٹ کھولیں", lock: "لاک", loginWrong: "پاس ورڈ درست نہیں ہے۔", loginTooMany: "بہت زیادہ کوششیں۔ 15 منٹ انتظار کر کے دوبارہ کوشش کریں۔",
+      photoAttached: "انوائس کی تصویر لگا دی گئی", viewPhoto: "انوائس کی تصویر", photoSaveErr: "آرڈر محفوظ ہو گیا لیکن تصویر اپ لوڈ نہیں ہو سکی۔ «ترمیم» کھول کر دوبارہ تصویر لیں۔",
+      ocrLoading: "ریڈر تیار ہو رہا ہے… (پہلی بار زیادہ وقت لگتا ہے)",
       appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
@@ -433,7 +452,9 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const digits = (s) => String(s || "").replace(/\D/g, "");
   const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
-  let sample = null, canScan = false;
+  let sample = null, canScan = false, pendingPhoto = null;
+  const canPhoto = () => mode === "server";
+  const photoUrl = (o) => `photos/${encodeURIComponent(o.id)}?v=${o.photo}`;
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   function toast(msg) {
@@ -491,7 +512,7 @@
       const st = await api("GET", "api/state");
       orders = st.orders || [];
       if (st.config) { shop = { shop: String(st.config.shop || ""), code: String(st.config.code || "966") }; store(CKEY, shop); }
-      serverScan = !!st.scan; canScan = serverScan; reportOk = !!st.report;
+      serverScan = !!st.scan; canScan = true; reportOk = !!st.report;
       if (view === "report" && !reportOk) setView("orders");
       loaded = true;
       if (noteKey === "noteSlow") setNote(null);
@@ -649,6 +670,7 @@
                                    <button class="btn primary" data-act="delivered"${ro}>${esc(t("markDelivered"))}</button>` : ""}
           <a class="btn" href="tel:${esc(digits(o.mobile))}">${esc(t("call"))}</a>
           <button class="btn" data-act="copy">${esc(t("copy"))}</button>
+          ${o.photo && mode === "server" ? `<button class="btn" data-act="photo">🧾 ${esc(t("viewPhoto"))}</button>` : ""}
           <button class="btn" data-act="edit"${ro}>${esc(t("edit"))}</button>
           <button class="btn danger" data-act="del"${ro}>${esc(t("del"))}</button>
         </div>
@@ -667,6 +689,10 @@
       const extra = act === "delivered" && !o.cleared ? { cleared: today() } : act === "ready" && !o.readyDate ? { readyDate: today() } : {};
       try { await saveOrder({ ...o, ...extra, status: act, updated: Date.now() }); if (act === "ready") toast(t("markedReady")); }
       catch (err) { el.disabled = false; writeFailed(err); }
+    } else if (act === "photo") {
+      $("photoTitle").textContent = `${o.name} · ${o.invoice}`;
+      $("photoImg").src = photoUrl(o);
+      $("photoDlg").showModal();
     } else if (act === "copy") {
       try { await navigator.clipboard.writeText(o.mobile); toast(t("copied")); }
       catch { const r = document.createRange(); r.selectNodeContents(el.closest(".order").querySelector(".meta b")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
@@ -694,8 +720,18 @@
     $("fCleared").value = o?.cleared || "";
     $("formErr").textContent = "";
     $("scanStatus").textContent = "";
-    $("scanBtn").hidden = !canScan;
+    $("scanBtn").hidden = !(canScan || canPhoto());
+    pendingPhoto = null;
+    showPhotoPreview(o && o.photo && canPhoto() ? photoUrl(o) : null);
     $("orderDlg").showModal();
+  }
+  $("photoClose").onclick = () => $("photoDlg").close();
+  $("photoDlg").addEventListener("close", () => { $("photoImg").removeAttribute("src"); });
+  function showPhotoPreview(src) {
+    const box = $("photoPrev");
+    if (box.dataset.url) { URL.revokeObjectURL(box.dataset.url); delete box.dataset.url; }
+    if (!src) { box.hidden = true; $("photoPrevImg").removeAttribute("src"); return; }
+    $("photoPrevImg").src = src; box.hidden = false;
   }
   $("addBtn").onclick = () => openOrder(null);
   $("cancelOrder").onclick = () => $("orderDlg").close();
@@ -714,7 +750,15 @@
     const o = { ...(prev || { id: newId(), created: Date.now() }), ...data, updated: Date.now() };
     if (o.status === "ready" && !o.readyDate) o.readyDate = today();
     $("saveOrder").disabled = true;
-    try { await saveOrder(o); $("orderDlg").close(); toast(t("saved")); }
+    try {
+      await saveOrder(o);
+      if (pendingPhoto && canPhoto()) {
+        try { upsertLocal(await api("PUT", "api/photos/" + encodeURIComponent(o.id), { image: await toBase64(pendingPhoto), type: pendingPhoto.type || "image/jpeg" })); render(); }
+        catch { $("orderDlg").close(); toast(t("photoSaveErr")); return; }
+      }
+      pendingPhoto = null;
+      $("orderDlg").close(); toast(t("saved"));
+    }
     catch (err) { $("orderDlg").close(); writeFailed(err); }
     finally { $("saveOrder").disabled = false; }
   });
@@ -871,12 +915,66 @@
   const asDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")) ? String(s) : "";
   const westernDigits = (s) => String(s ?? "").replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).trim();
 
-  async function scanOnServer(img) {
-    const b64 = await new Promise((resolve, reject) => {
+  // ---------- built-in OCR (used on Railway when no Anthropic API key is set) ----------
+  const SHOP_PHONES = ["0563918278", "0560716819"];
+  let tessLoading = null;
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve();
+    return tessLoading || (tessLoading = new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+      sc.onload = resolve;
+      sc.onerror = () => { tessLoading = null; reject({ code: "ocr_load" }); };
+      document.head.appendChild(sc);
+    }));
+  }
+  function pickFields(data) {
+    const text = String(data.text || "").replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+    const flat = text.replace(/[\s-]/g, "");
+    const phones = (flat.match(/(?:\+?966|0)5\d{8}/g) || []).map((n) => n.replace(/^\+?966/, "0"));
+    const mobile = phones.find((n) => !SHOP_PHONES.includes(n)) || "";
+    let date = "", m;
+    if ((m = text.match(/(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})/))) date = `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+    else if ((m = text.match(/(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})/))) date = `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+    if (date && isNaN(parseYmd(date))) date = "";
+    const skip = (n) => phones.some((ph) => ph.includes(n)) || SHOP_PHONES.some((ph) => ph.includes(n)) || (date && date.replace(/-/g, "").includes(n)) || /^(19|20)\d{2}$/.test(n) && date.startsWith(n);
+    let invoice = "";
+    const label = /(invoice|inv|no\b|no\.|n°|#|رقم|فاتورة|الفاتورة|انوائس|بل)/i;
+    for (const line of text.split(/\n/)) {
+      if (!label.test(line)) continue;
+      const nums = (line.match(/\d{2,10}/g) || []).filter((n) => !skip(n));
+      if (nums.length) { invoice = nums[0]; break; }
+    }
+    if (!invoice) {
+      // Otherwise take the largest printed number on the page (invoice numbers are usually big).
+      const words = (data.words || []).map((w) => ({
+        n: String(w.text || "").replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[^\d]/g, ""),
+        h: w.bbox ? w.bbox.y1 - w.bbox.y0 : 0, c: w.confidence || 0,
+      })).filter((w) => w.n.length >= 2 && w.n.length <= 8 && w.c >= 50 && !skip(w.n));
+      words.sort((a, b) => b.h - a.h);
+      invoice = words.length ? words[0].n : "";
+    }
+    return { invoice, date, mobile, name: "", book: "" };
+  }
+  async function ocrLocal(img) {
+    const status = $("scanStatus");
+    status.textContent = t("ocrLoading");
+    await loadTesseract();
+    const { data } = await window.Tesseract.recognize(img, "eng+ara", {
+      logger: (m) => { if (m.status === "recognizing text") status.textContent = `${t("scanning")} ${Math.round((m.progress || 0) * 100)}%`; },
+    });
+    return pickFields(data);
+  }
+
+  function toBase64(blob) {
+    return new Promise((resolve, reject) => {
       const fr = new FileReader();
       fr.onload = () => resolve(String(fr.result).split(",")[1]);
-      fr.onerror = reject; fr.readAsDataURL(img);
+      fr.onerror = reject; fr.readAsDataURL(blob);
     });
+  }
+  async function scanOnServer(img) {
+    const b64 = await toBase64(img);
     try { return await api("POST", "api/scan", { image: b64, type: img.type || "image/jpeg" }); }
     catch (e) { throw { code: e && e.code === "login" ? "login" : "upstream_error" }; }
   }
@@ -885,15 +983,22 @@
     const file = e.target.files[0]; e.target.value = "";
     if (!file || (!sample && mode !== "server")) return;
     const status = $("scanStatus");
-    $("scanBtn").disabled = true; status.textContent = t("scanning");
+    $("scanBtn").disabled = true;
     try {
       const img = await shrink(file);
-      const r = mode === "server" ? await scanOnServer(img) : await sample.json(
+      if (canPhoto()) {
+        pendingPhoto = img;
+        const u = URL.createObjectURL(img); showPhotoPreview(u); $("photoPrev").dataset.url = u;
+      }
+      if (!canScan) { status.textContent = ""; return; }
+      status.textContent = t("scanning");
+      const r = mode === "server" ? (serverScan ? await scanOnServer(img) : await ocrLocal(img)) : await sample.json(
         "The image is a photo of a tailor shop invoice or receipt (it may be in Arabic, English or Urdu, handwritten or printed). " +
         "Read it and return ONLY a JSON object with these keys: " +
         '{"invoice": the invoice/receipt number as a string of digits (look for labels like Invoice No, رقم الفاتورة, فاتورة رقم, No., انوائس نمبر), ' +
         '"date": the invoice date as YYYY-MM-DD (convert Hijri to Gregorian only if you are sure, otherwise empty), ' +
         '"name": the customer name if written, "mobile": the customer mobile number if written, "book": a book/booklet number if written}. ' +
+        "The shop's own phone numbers (056 391 8278, 056 071 6819) are never the customer's mobile. " +
         "Use Western digits 0-9. Use an empty string for anything you cannot read clearly. Do not guess.",
         { images: [img], modelTier: "default", cache: false }
       );
