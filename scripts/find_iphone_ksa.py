@@ -7,8 +7,11 @@ How it works
 ------------
 1. Apple Store Saudi Arabia (apple.com/sa-en) - checked LIVE.
    The script reads the official buy page, finds every model/storage
-   option in the requested color, and asks Apple's own delivery service
-   whether each one can be bought and when it ships.
+   option in the requested color, and asks Apple's delivery API
+   (/shop/delivery-message, the same one the store page uses) whether each
+   one can be bought, when it ships and which delivery options exist.
+   All parts go in one batched request. Apple Saudi Arabia has no in-store
+   pickup, so delivery is the only way to get it from Apple.
 
 2. Authorised Saudi resellers (Jarir, eXtra, STC, Mobily, Zain, Amazon.sa,
    noon). Most of these sites load products with JavaScript or block bots,
@@ -23,6 +26,8 @@ Usage
     python3 find_iphone_ksa.py --model iphone-18-pro --color "Deep Blue"
     python3 find_iphone_ksa.py --list-models
     python3 find_iphone_ksa.py --json                # output for other tools
+    python3 find_iphone_ksa.py --part MK294AH/A      # check exact part numbers
+    python3 find_iphone_ksa.py --watch 15            # re-check every 15 minutes
 """
 
 from __future__ import annotations
@@ -31,6 +36,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from dataclasses import dataclass, field, asdict
 from urllib.parse import quote_plus
 
@@ -105,16 +111,77 @@ def apple_products(session: requests.Session, model: str) -> list[dict]:
     return list(products.values())
 
 
-def apple_delivery(session: requests.Session, part: str) -> dict:
-    url = f"{APPLE_BASE}/shop/delivery-message?parts.0={quote_plus(part)}&mt=regular"
-    data = get(session, url).json()
-    msg = data["body"]["content"]["deliveryMessage"].get(part, {}).get("regular", {})
-    ships = ", ".join(o.get("displayName", "") for o in msg.get("deliveryOptionMessages", []))
-    return {
-        "buyable": bool(msg.get("isBuyable")),
-        "ships": ships,
-        "reason": msg.get("buyability", {}).get("reason", ""),
-    }
+DELIVERY_BATCH = 10  # part numbers per delivery-message request
+
+
+def apple_delivery(session: requests.Session, parts: list[str],
+                   retries: int = 3) -> dict[str, dict]:
+    """Ask Apple's delivery-message API about several part numbers at once.
+
+    This is the same API the "Ships ..." text on apple.com/sa-en uses.
+    Returns {partNumber: {buyable, reason, ships, options, subheader}}.
+    Parts Apple doesn't know about are missing from the result.
+    (Apple Saudi Arabia has no in-store pickup, and the ship date is the same
+    nationwide, so no location parameter is needed.)
+    """
+    results: dict[str, dict] = {}
+    for start in range(0, len(parts), DELIVERY_BATCH):
+        chunk = parts[start:start + DELIVERY_BATCH]
+        query = "&".join(f"parts.{i}={quote_plus(p)}" for i, p in enumerate(chunk))
+        url = f"{APPLE_BASE}/shop/delivery-message?mt=regular&{query}"
+
+        last_exc: Exception | None = None
+        for attempt in range(retries):
+            try:
+                resp = get(session, url)
+                resp.raise_for_status()
+                content = resp.json()["body"]["content"]["deliveryMessage"]
+                break
+            except Exception as exc:  # timeout, 5xx, rate limit, bad JSON
+                last_exc = exc
+                time.sleep(2 ** attempt)
+        else:
+            raise RuntimeError(f"Apple delivery API failed: {last_exc}")
+
+        for part in chunk:
+            msg = (content.get(part) or {}).get("regular")
+            if not msg:
+                continue
+            buy = msg.get("buyability") or {}
+            results[part] = {
+                "buyable": bool(buy.get("isBuyable", msg.get("isBuyable"))),
+                "reason": buy.get("reason", ""),
+                "ships": ", ".join(o.get("displayName", "")
+                                   for o in msg.get("deliveryOptionMessages", [])),
+                "options": [
+                    " · ".join(x for x in (o.get("displayName"), o.get("date"),
+                                           o.get("shippingCost")) if x)
+                    for o in msg.get("deliveryOptions", [])
+                ],
+                "subheader": msg.get("subHeader", "").removeprefix("For "),
+            }
+    return results
+
+
+def apple_offer(info: dict | None, name: str, price: float | None, page: str) -> Offer:
+    if info is None:
+        return Offer("Apple Store KSA", name, "unavailable", price, url=page,
+                     notes=["Apple's delivery API doesn't list this part"])
+    status = "available" if info["buyable"] else "unavailable"
+    notes = list(info["options"])
+    if not info["buyable"]:
+        notes.append(f"Not buyable right now (reason: {info['reason'] or 'unknown'})")
+    return Offer("Apple Store KSA", name, status, price, info["ships"], page, notes)
+
+
+def check_apple_parts(session: requests.Session, parts: list[str]) -> list[Offer]:
+    page = f"{APPLE_BASE}/shop/buy-iphone"
+    try:
+        info = apple_delivery(session, parts)
+    except Exception as exc:
+        return [Offer("Apple Store KSA", ", ".join(parts), "error", url=page, notes=[str(exc)])]
+    return [apple_offer(info.get(p), (info.get(p) or {}).get("subheader") or p, None, page)
+            for p in parts]
 
 
 def check_apple(session: requests.Session, model: str, color: str) -> list[Offer]:
@@ -123,6 +190,9 @@ def check_apple(session: requests.Session, model: str, color: str) -> list[Offer
         products = apple_products(session, model)
     except Exception as exc:  # network / layout change
         return [Offer("Apple Store KSA", model, "error", url=page, notes=[str(exc)])]
+    if not products:
+        return [Offer("Apple Store KSA", model, "error", url=page,
+                      notes=["No products found on the page. Check --list-models for valid names"])]
 
     wanted = [p for p in products if color.lower() in p["name"].lower()]
     if not wanted:
@@ -130,18 +200,14 @@ def check_apple(session: requests.Session, model: str, color: str) -> list[Offer
         note = f"No '{color}' found. Colors on this page: {', '.join(colors) or 'none parsed'}"
         return [Offer("Apple Store KSA", model, "unavailable", url=page, notes=[note])]
 
-    offers = []
-    for p in sorted(wanted, key=lambda p: p["price"]):
-        try:
-            d = apple_delivery(session, p["partNumber"])
-            status = "available" if d["buyable"] else "unavailable"
-            notes = [] if d["buyable"] else [d["reason"]]
-            offers.append(Offer("Apple Store KSA", p["name"], status, p["price"],
-                                d["ships"], page, notes))
-        except Exception as exc:
-            offers.append(Offer("Apple Store KSA", p["name"], "error", p["price"],
-                                url=page, notes=[str(exc)]))
-    return offers
+    wanted.sort(key=lambda p: p["price"])
+    try:
+        info = apple_delivery(session, [p["partNumber"] for p in wanted])
+    except Exception as exc:
+        return [Offer("Apple Store KSA", p["name"], "error", p["price"], url=page,
+                      notes=[str(exc)]) for p in wanted]
+    return [apple_offer(info.get(p["partNumber"]), p["name"], p["price"], page)
+            for p in wanted]
 
 
 # --------------------------------------------------------------------------- #
@@ -179,8 +245,8 @@ ICONS = {"available": "✅", "unavailable": "❌", "listed": "🟡",
          "check link": "🔗", "error": "⚠️"}
 
 
-def print_report(offers: list[Offer], model: str, color: str) -> None:
-    print(f"\nSearching Saudi Arabia for: {model.replace('-', ' ').title().replace('Iphone', 'iPhone')} in {color}\n")
+def print_report(offers: list[Offer], target: str) -> None:
+    print(f"\nSearching Saudi Arabia for: {target}\n")
     current = None
     for o in offers:
         if o.vendor != current:
@@ -198,8 +264,9 @@ def print_report(offers: list[Offer], model: str, color: str) -> None:
     print()
     if available:
         best = min(available, key=lambda o: o.price_sar or 1e12)
-        print(f"Cheapest confirmed option: {best.name} at {best.vendor} "
-              f"for {best.price_sar:,.0f} SAR ({best.ships or 'see site'}).")
+        price = f" for {best.price_sar:,.0f} SAR" if best.price_sar else ""
+        print(f"Cheapest confirmed option: {best.name} at {best.vendor}"
+              f"{price} ({best.ships or 'see site'}).")
         print(f"Buy here: {best.url}")
     else:
         print("No confirmed stock right now. Try the 🔗 links above or run again later.")
@@ -217,6 +284,10 @@ def main() -> int:
     ap.add_argument("--list-models", action="store_true",
                     help="List iPhone models on Apple's Saudi store and exit")
     ap.add_argument("--json", action="store_true", help="Print JSON instead of a table")
+    ap.add_argument("--part", action="append", metavar="PART",
+                    help="Check Apple part number(s) directly, e.g. MK294AH/A (repeatable)")
+    ap.add_argument("--watch", type=float, metavar="MINUTES",
+                    help="Keep checking Apple every N minutes until it's available")
     args = ap.parse_args()
 
     session = requests.Session()
@@ -226,8 +297,22 @@ def main() -> int:
             print(slug)
         return 0
 
-    offers = check_apple(session, args.model, args.color)
-    if not args.apple_only:
+    def apple_check() -> list[Offer]:
+        if args.part:
+            return check_apple_parts(session, [p.upper() for p in args.part])
+        return check_apple(session, args.model, args.color)
+
+    offers = apple_check()
+    while args.watch and not any(o.status == "available" for o in offers):
+        stamp = time.strftime("%H:%M")
+        print(f"[{stamp}] Not available from Apple yet; checking again in {args.watch:g} min",
+              file=sys.stderr)
+        time.sleep(args.watch * 60)
+        offers = apple_check()
+    if args.watch:
+        print("\a", end="", file=sys.stderr)  # terminal bell: it's in stock
+
+    if not args.apple_only and not args.part:
         query = f"{args.model.replace('-', ' ').replace('iphone', 'iPhone')} {args.color}"
         for vendor, template in TRUSTED_RESELLERS.items():
             offers.append(check_reseller(session, vendor, template, query))
@@ -235,7 +320,12 @@ def main() -> int:
     if args.json:
         print(json.dumps([asdict(o) for o in offers], indent=2, ensure_ascii=False))
     else:
-        print_report(offers, args.model, args.color)
+        if args.part:
+            target = "Apple parts " + ", ".join(p.upper() for p in args.part)
+        else:
+            model = args.model.replace("-", " ").title().replace("Iphone", "iPhone")
+            target = f"{model} in {args.color}"
+        print_report(offers, target)
     return 0 if any(o.status == "available" for o in offers) else 1
 
 
