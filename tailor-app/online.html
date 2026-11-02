@@ -248,7 +248,6 @@
       <div class="langs" id="langList" role="menu" aria-label="Language" hidden>
         <button role="menuitemradio" data-lang="ar" id="langAr"><span lang="ar">العربية</span><i class="tick" aria-hidden="true">✓</i></button>
         <button role="menuitemradio" data-lang="en" id="langEn"><span lang="en">English</span><i class="tick" aria-hidden="true">✓</i></button>
-        <button role="menuitemradio" data-lang="ur" id="langUr"><span lang="ur">اردو</span><i class="tick" aria-hidden="true">✓</i></button>
       </div>
     </div>
     <button class="icon-btn" id="reportBtn" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V6"/><path d="M17 16v-8"/></svg></button>
@@ -386,7 +385,6 @@
       <option value="auto" data-t="msgLangAuto"></option>
       <option value="ar">العربية</option>
       <option value="en">English</option>
-      <option value="ur">اردو</option>
     </select>
     <hr>
     <div class="hint" id="backupHint"></div>
@@ -576,50 +574,6 @@
       saved: "تم الحفظ", markedReady: "تم تحديده كجاهز", due: "التسليم", copied: "تم نسخ الرقم",
       saveErr: "تعذّر الحفظ. تحقق من الاتصال وحاول مرة أخرى.",
       msg: (o, shop) => `مرحباً ${o.name}، ${qtyOf(o) > 1 ? `ثيابك (${qtyOf(o)}) جاهزة` : "ثوبك جاهز"} للاستلام.\nرقم الفاتورة: ${o.invoice}${shop ? `\n${shop}` : ""}\nشكراً لك!`
-    },
-    ur: {
-      dir: "rtl", tabOrders: "آرڈر", tabReport: "رپورٹ", day: "روزانہ", week: "ہفتہ وار", month: "ماہانہ", kNew: "نئے آرڈر", kReady: "تیار تھوب", kDelivered: "دے دیے گئے", kAvg: "ڈیلیوری کے اوسط دن", daysU: "دن", nowTitle: "ابھی کی صورتحال", kWaiting: "وصولی کے منتظر", kOverdue: "تاخیر شدہ", chartTitle: "نئے آرڈر اور ڈیلیوری", legNew: "نئے آرڈر", legDel: "دے دیے گئے", periodCol: "مدت", overdueTitle: "تاریخ گزر چکے آرڈر", noOverdue: "کوئی آرڈر تاخیر میں نہیں۔", today: "آج", thisWeek: "اس ہفتے", thisMonth: "اس مہینے", weekOf: "ہفتہ", locale: "ur-PK-u-nu-latn",
-      loginTitle: "رپورٹ کا پاس ورڈ", password: "پاس ورڈ", loginBtn: "رپورٹ کھولیں", lock: "لاک", loginWrong: "پاس ورڈ درست نہیں ہے۔", loginTooMany: "بہت زیادہ کوششیں۔ 15 منٹ انتظار کر کے دوبارہ کوشش کریں۔",
-      photoAttached: "انوائس کی تصویر لگا دی گئی", viewPhoto: "انوائس کی تصویر", photoSaveErr: "آرڈر محفوظ ہو گیا لیکن تصویر اپ لوڈ نہیں ہو سکی۔ «ترمیم» کھول کر دوبارہ تصویر لیں۔",
-      ocrLoading: "ریڈر تیار ہو رہا ہے… (پہلی بار زیادہ وقت لگتا ہے)",
-      installTitle: "سالار کو ہوم اسکرین پر شامل کریں", installAndroid: "ایک ٹیپ سے ایپ کی طرح پوری اسکرین پر کھولیں۔", installIos: "Safari کے نیچے {share} شیئر دبائیں، پھر {add} «Add to Home Screen» منتخب کریں۔", installGo: "انسٹال کریں", installLater: "ابھی نہیں", installSetting: "ہوم اسکرین پر شامل کریں",
-      qty: "تھوب کی تعداد", qtyShort: "تھوب", thobesN: (n) => `${n} تھوب`,
-      installIosChrome: "اوپر ایڈریس بار میں {share} شیئر دبائیں، پھر {add} «Add to Home Screen» منتخب کریں۔", installAndroidMenu: "Chrome کے اوپر دائیں {menu} مینو دبائیں، پھر «Install app» یا «Add to Home screen» منتخب کریں۔", installInApp: "یہ لنک کسی اور ایپ کے اندر کھلا ہے جو ہوم اسکرین پر شامل نہیں کر سکتی۔ لنک کاپی کر کے {browser} میں کھولیں۔", copyLink: "لنک کاپی کریں", linkCopied: "لنک کاپی ہو گیا۔ براؤزر میں پیسٹ کریں۔",
-      iosSteps: ["Safari کے نیچے {share} شیئر دبائیں (نئے iPhone پر پہلے {dots} دبائیں، پھر شیئر)۔", "فہرست نیچے اسکرول کریں اور {add} «Add to Home Screen» دبائیں۔", "اوپر دائیں «Add» دبائیں۔"],
-      synced: (n) => `اس فون پر محفوظ ${n} آرڈر اپ لوڈ کر دیے گئے۔`,
-      signInTitle: "سالار میں سائن اِن کریں", ownerTitle: "مالک کا سائن اِن", signOut: "سائن آؤٹ", ownerOnly: "یہ صرف مالک تبدیل کر سکتا ہے۔",
-      signInBtn: "سائن اِن",
-      username: "یوزر نیم", signInHint: "اپنے یوزر نیم اور پاس ورڈ سے سائن اِن کریں۔", ownerHint: "رپورٹ صرف مالک کے اکاؤنٹ کے لیے ہے۔", notOwner: "یہ مالک کا اکاؤنٹ نہیں ہے۔", loginWrong: "یوزر نیم یا پاس ورڈ درست نہیں ہے۔",
-      changePw: "میرا پاس ورڈ تبدیل کریں", currentPw: "موجودہ پاس ورڈ", newPw: "نیا پاس ورڈ", pwRule: "کم از کم 6 حروف۔", pwChanged: "پاس ورڈ تبدیل ہو گیا، دوسرے فونز سے اس اکاؤنٹ کو سائن آؤٹ کر دیا گیا۔",
-      accounts: "اکاؤنٹس", addAccount: "اکاؤنٹ شامل کریں", roleLabel: "اختیار", roleOwner: "مالک", roleStaff: "اسٹاف", userRule: "یوزر نیم: 3 سے 30 انگریزی حروف، نمبر یا . - _ — پاس ورڈ: کم از کم 6 حروف۔",
-      you: "آپ", resetPw: "نیا پاس ورڈ سیٹ کریں", pwReset: "پاس ورڈ سیٹ ہو گیا، اس شخص کو نئے پاس ورڈ سے سائن اِن کرنا ہوگا۔", tapAgainDelete: "تصدیق کے لیے دوبارہ حذف دبائیں۔", accountDeleted: "اکاؤنٹ حذف اور سائن آؤٹ کر دیا گیا۔", accountAdded: "اکاؤنٹ شامل ہو گیا۔",
-      addedBy: "شامل کیا", changedBy: "آخری تبدیلی",
-      err_wrong_current: "موجودہ پاس ورڈ درست نہیں ہے۔", err_weak_password: "پاس ورڈ کم از کم 6 حروف کا ہونا چاہیے۔", err_bad_username: "3 سے 30 انگریزی حروف، نمبر یا . - _ استعمال کریں۔", err_username_taken: "یہ یوزر نیم پہلے سے موجود ہے۔", err_last_owner: "کم از کم ایک مالک کا اکاؤنٹ ہونا ضروری ہے۔", err_cannot_delete_self: "آپ اپنا اکاؤنٹ حذف نہیں کر سکتے۔", err_owner_only: "یہ صرف مالک کر سکتا ہے۔",
-      appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
-      name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
-      status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
-      invDate: "انوائس کی تاریخ", clearedDate: "کلیئر ہونے کی تاریخ", invDateShort: "انوائس تاریخ", clearedShort: "کلیئر",
-      scan: "اسکین", scanning: "انوائس پڑھی جا رہی ہے…", scanDone: "تصویر سے بھر دیا گیا۔ براہ کرم نمبر چیک کریں۔",
-      scanNone: "تصویر میں انوائس نمبر نہیں ملا۔ قریب سے دوبارہ لیں یا نمبر لکھ دیں۔",
-      scanErr: "ابھی تصویر نہیں پڑھی جا سکی۔ نمبر خود لکھ دیں۔",
-      pending: "سلائی جاری ہے", ready: "تھوب تیار ہے", delivered: "دے دیا گیا",
-      markReady: "✓ تھوب تیار ہے", markDelivered: "دے دیا گیا", notify: "واٹس ایپ", call: "کال", copy: "نمبر کاپی",
-      edit: "ترمیم", del: "حذف", save: "محفوظ کریں", cancel: "منسوخ", done: "ٹھیک ہے",
-      search: "نام، موبائل، بک یا انوائس سے تلاش کریں…", empty: "ابھی کوئی آرڈر نہیں۔ پہلا آرڈر شامل کرنے کے لیے «نیا آرڈر» دبائیں۔",
-      noMatch: "کوئی آرڈر نہیں ملا۔", confirmDel: "کیا یہ آرڈر حذف کر دیں؟", loading: "آرڈر لوڈ ہو رہے ہیں…",
-      errRequired: "براہ کرم نام، موبائل اور انوائس نمبر درج کریں۔", errDupInvoice: "یہ انوائس نمبر پہلے سے موجود ہے۔",
-      settings: "سیٹنگز", shopName: "دکان کا نام (پیغام میں)", countryCode: "واٹس ایپ کے لیے ملک کا کوڈ",
-      countryHint: "0 سے شروع ہونے والے نمبروں پر یہ کوڈ لگے گا، جیسے سعودی عرب کے لیے 966۔",
-      msgLang: "گاہک کے پیغام کی زبان", msgLangAuto: "ایپ والی زبان",
-      hintCloud: "آرڈر آن لائن محفوظ ہیں اور یہ صفحہ کھولنے والے ہر فون اور کمپیوٹر پر نظر آتے ہیں۔",
-      hintLocal: "آرڈر صرف اسی ڈیوائس پر محفوظ ہیں۔ باقاعدگی سے بیک اپ ایکسپورٹ کریں۔",
-      noteLocal: "آف لائن موڈ: آرڈر صرف اسی ڈیوائس پر محفوظ ہیں۔",
-      noteSlow: "ابھی محفوظ آرڈر تک رسائی نہیں ہو پا رہی۔ کنکشن چیک کریں، فہرست خود اپ ڈیٹ ہو جائے گی۔",
-      noteReadOnly: "آپ صرف آرڈر دیکھ سکتے ہیں۔ دکان کے مالک سے Contributor رسائی مانگیں۔",
-      export: "بیک اپ ایکسپورٹ", import: "بیک اپ امپورٹ", imported: "بیک اپ امپورٹ ہو گیا", importErr: "یہ فائل درست بیک اپ نہیں ہے",
-      saved: "محفوظ ہو گیا", markedReady: "تیار کر دیا گیا", due: "تاریخ", copied: "نمبر کاپی ہو گیا",
-      saveErr: "محفوظ نہیں ہو سکا۔ کنکشن چیک کر کے دوبارہ کوشش کریں۔",
-      msg: (o, shop) => `السلام علیکم ${o.name}، ${qtyOf(o) > 1 ? `آپ کے ${qtyOf(o)} تھوب تیار ہیں` : "آپ کا تھوب تیار ہے"}، براہ کرم وصول کر لیں۔\nانوائس نمبر: ${o.invoice}${shop ? `\n${shop}` : ""}\nشکریہ!`
     }
   };
 
@@ -630,6 +584,8 @@
 
   // Per-viewer preferences (language, message language) stay in this browser.
   const prefs = Object.assign({ lang: "ar", msgLang: "auto" }, load(PKEY, {}));
+  if (!["ar", "en"].includes(prefs.lang)) prefs.lang = "ar";
+  if (!["auto", "ar", "en"].includes(prefs.msgLang)) prefs.msgLang = "auto";
   // Shop-wide settings are shared through the database when online.
   let shop = Object.assign({ shop: "", code: "966" }, load(CKEY, {}));
 
@@ -884,7 +840,7 @@
     document.querySelectorAll(".langs button").forEach((b) => { const on = b.dataset.lang === prefs.lang; b.classList.toggle("on", on); b.setAttribute("aria-checked", on); });
     $("reportBtn").setAttribute("aria-label", L.tabReport); $("reportBtn").title = L.tabReport;
     $("settingsBtn").setAttribute("aria-label", L.settings); $("settingsBtn").title = L.settings;
-    $("langCur").textContent = { ar: "العربية", en: "English", ur: "اردو" }[prefs.lang];
+    $("langCur").textContent = { ar: "العربية", en: "English" }[prefs.lang];
     $("backupHint").textContent = mode === "cloud" || mode === "server" ? L.hintCloud : L.hintLocal;
     if (noteKey) setNote(noteKey);
     render();
