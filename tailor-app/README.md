@@ -36,8 +36,10 @@ and a "Right now" panel shows orders in progress, waiting for pickup and overdue
 ## Railway version
 `server.js` serves the same page on Railway with its own storage:
 - Orders are kept in `orders.json` on a Railway volume mounted at `/data`.
-- Orders open without a password for anyone with the link. Only the **Report** tab asks for the
-  password (`APP_PASSWORD`); it stays unlocked on that device for 90 days, or until **Lock** is tapped.
+- Customer data is private: everyone signs in first. Staff (`STAFF_PASSWORD`) can view and enter
+  orders; the owner (`APP_PASSWORD`) can also open the report and change shop settings. Photos and the
+  live-update channel need a sign-in too. Sessions last 90 days; **Lock** in the report drops the owner
+  back to staff on a shared phone, and Settings has **Sign out**.
 - The **📷 Photo** button takes a picture of the invoice. The photo is saved with the order (in
   `/data/photos`) and can be opened from the order card with **Invoice photo**.
 - The photo is also read automatically (OCR) to fill in the invoice number, date and mobile:
@@ -46,5 +48,5 @@ and a "Right now" panel shows orders in progress, waiting for pickup and overdue
   The shop's own phone numbers are never taken as the customer's mobile.
 - The page can be added to the phone's home screen (it has an app icon).
 
-Variables: `APP_PASSWORD` (required, the report password), `ANTHROPIC_API_KEY` (optional), `DATA_DIR` (default `/data`).
+Variables: `APP_PASSWORD` (required, owner), `STAFF_PASSWORD` (required, staff), `ANTHROPIC_API_KEY` (optional), `DATA_DIR` (default `/data`).
 Run locally: `cd tailor-app && npm install && APP_PASSWORD=test DATA_DIR=./data npm start`.

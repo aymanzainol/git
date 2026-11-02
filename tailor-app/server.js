@@ -1,10 +1,12 @@
 // Salar Tailoring – small server for Railway.
 // Serves the app page, keeps orders in a JSON file on a volume, and reads invoice photos
-// with the Claude API when ANTHROPIC_API_KEY is set. Orders are open to anyone with the
-// link; only the Report tab asks for the password.
+// with the Claude API when ANTHROPIC_API_KEY is set. Customer data is only for signed-in
+// people: staff (STAFF_PASSWORD) can view and enter orders; the owner (APP_PASSWORD) can also
+// open the report and change shop settings.
 //
 // Environment:
-//   APP_PASSWORD       required – the password for the Report tab
+//   APP_PASSWORD       required – the owner's password (everything, including the report)
+//   STAFF_PASSWORD     required – the staff password (orders only, no report or settings)
 //   DATA_DIR           where orders.json lives (default /data, mount a Railway volume there)
 //   ANTHROPIC_API_KEY  optional – turns on the "Scan" invoice button
 //   SESSION_SECRET     optional – signs login cookies (defaults to a value derived from APP_PASSWORD)
@@ -26,12 +28,14 @@ const DATA_FILE = path.join(DATA_DIR, "orders.json");
 const PHOTO_DIR = path.join(DATA_DIR, "photos");
 const PHOTO_EXT = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
 const PASSWORD = process.env.APP_PASSWORD || "";
+const STAFF_PASSWORD = process.env.STAFF_PASSWORD || "";
 const SECRET = process.env.SESSION_SECRET || crypto.createHash("sha256").update("salar:" + PASSWORD).digest("hex");
 const COOKIE = "salar_session";
 const SESSION_DAYS = 90;
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 
-if (!PASSWORD) console.warn("APP_PASSWORD is not set – the Report tab cannot be opened until it is.");
+if (!PASSWORD) console.warn("APP_PASSWORD (owner) is not set – nobody can sign in as owner until it is.");
+if (!STAFF_PASSWORD) console.warn("STAFF_PASSWORD is not set – staff cannot sign in until it is.");
 
 // ---------- page ----------
 const SKELETON_HEAD = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -89,17 +93,26 @@ async function removePhoto(id) {
 
 // ---------- auth ----------
 const sign = (v) => crypto.createHmac("sha256", SECRET).update(v).digest("base64url");
-function makeToken() {
-  const exp = String(Date.now() + SESSION_DAYS * 864e5);
-  return exp + "." + sign(exp);
+const ROLES = ["staff", "owner"];
+function makeToken(role) {
+  const body = String(Date.now() + SESSION_DAYS * 864e5) + "." + role;
+  return body + "." + sign(body);
 }
-function validToken(tok) {
-  if (!tok || !PASSWORD) return false;
-  const [exp, sig] = tok.split(".");
-  if (!exp || !sig || Number(exp) < Date.now()) return false;
-  const a = Buffer.from(sig), b = Buffer.from(sign(exp));
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+// Returns "owner", "staff" or null.
+function roleOf(req) {
+  const tok = cookieOf(req, COOKIE);
+  const [exp, role, sig] = (tok || "").split(".");
+  if (!exp || !role || !sig || !ROLES.includes(role) || Number(exp) < Date.now()) return null;
+  const a = Buffer.from(sig), b = Buffer.from(sign(exp + "." + role));
+  return a.length === b.length && crypto.timingSafeEqual(a, b) ? role : null;
 }
+function samePassword(given, real) {
+  if (!real) return false;
+  const a = crypto.createHash("sha256").update(String(given || "")).digest();
+  const b = crypto.createHash("sha256").update(real).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+const sessionCookie = (role) => `${COOKIE}=${makeToken(role)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DAYS * 86400}`;
 function cookieOf(req, name) {
   for (const part of (req.headers.cookie || "").split(";")) {
     const [k, ...v] = part.trim().split("=");
@@ -220,6 +233,7 @@ const server = http.createServer(async (req, res) => {
     if (p === "/health") return send(res, 200, { ok: true });
     const ph = req.method === "GET" && p.match(/^\/photos\/([^/]+)$/);
     if (ph) {
+      if (!roleOf(req)) return send(res, 401, "Sign in first");
       const id = decodeURIComponent(ph[1]);
       if (!ID_RE.test(id)) return send(res, 404, "Not found");
       for (const [type, ext] of Object.entries(PHOTO_EXT)) {
@@ -235,17 +249,23 @@ const server = http.createServer(async (req, res) => {
       const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
       if (tooMany(ip)) return send(res, 429, { error: "too_many_attempts" });
       const { password } = await readBody(req, 4096);
-      const a = crypto.createHash("sha256").update(String(password || "")).digest();
-      const b = crypto.createHash("sha256").update(PASSWORD).digest();
-      if (!PASSWORD || !crypto.timingSafeEqual(a, b)) return send(res, 401, { error: "wrong_password" });
+      const role = samePassword(password, PASSWORD) ? "owner" : samePassword(password, STAFF_PASSWORD) ? "staff" : null;
+      if (!role) return send(res, 401, { error: "wrong_password" });
       attempts.delete(ip);
-      return send(res, 200, { ok: true }, {
-        "Set-Cookie": `${COOKIE}=${makeToken()}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DAYS * 86400}`,
-      });
+      return send(res, 200, { ok: true, role }, { "Set-Cookie": sessionCookie(role) });
+    }
+    // Owner locks the report again on a shared phone: stay signed in, as staff.
+    if (p === "/api/lock" && req.method === "POST") {
+      if (!roleOf(req)) return send(res, 401, { error: "login_required" });
+      return send(res, 200, { ok: true, role: "staff" }, { "Set-Cookie": sessionCookie("staff") });
     }
     if (p === "/api/logout" && req.method === "POST") {
       return send(res, 200, { ok: true }, { "Set-Cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0` });
     }
+
+    // Everything below needs a signed-in owner or staff member.
+    const role = roleOf(req);
+    if (!role) return send(res, 401, { error: "login_required" });
 
     // Same-origin check for writes.
     if (req.method !== "GET" && req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) {
@@ -253,7 +273,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === "/api/state" && req.method === "GET") {
-      return send(res, 200, { orders: Object.values(state.orders), config: state.config, scan: !!anthropic, report: validToken(cookieOf(req, COOKIE)), version });
+      return send(res, 200, { orders: Object.values(state.orders), config: state.config, scan: !!anthropic, role, report: role === "owner", version });
     }
     if (p === "/api/events" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
@@ -295,6 +315,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, state.orders[id]);
     }
     if (p === "/api/config" && req.method === "PUT") {
+      if (role !== "owner") return send(res, 403, { error: "owner_only" });
       const b = await readBody(req, 4096);
       state.config = { shop: str(b.shop, 120), code: String(b.code || "966").replace(/\D/g, "").slice(0, 4) || "966" };
       await persist();
