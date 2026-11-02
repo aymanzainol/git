@@ -185,6 +185,23 @@
   .overdue li span { color: var(--muted); font-variant-numeric: tabular-nums; }
   .loginlogo { display: block; width: 72px; height: 72px; border-radius: 16px; margin: 0 auto 8px; }
   .scanrow { display: flex; gap: 8px; }
+  .acct { margin-top: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .acct-who { display: flex; align-items: center; gap: 10px; }
+  .acct-who div { display: flex; flex-direction: column; }
+  .acct-who span:not(.avatar) { font-size: 13px; color: var(--muted); }
+  .avatar.sm { width: 34px; height: 34px; font-size: 15px; }
+  .acct-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .users { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .users li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+  .users li .u { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .users li .u b { overflow-wrap: anywhere; }
+  .users li .u span { font-size: 12.5px; color: var(--muted); }
+  .users li .u .chip { align-self: flex-start; margin-top: 2px; }
+  .chip { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--tint); color: var(--brand); }
+  .chip.owner { background: var(--pending-bg); color: var(--pending); }
+  .adduser { border-top: 1px solid var(--line); padding-top: 10px; }
+  .adduser h3 { margin: 4px 0 0; font-size: 15px; }
+  .byline { font-size: 12.5px; color: var(--muted); }
   .stepper { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--bg); }
   .stepper button { flex: none; width: 44px; border: 0; background: transparent; color: var(--brand); font: inherit; font-size: 22px; font-weight: 700; cursor: pointer; }
   .stepper button:active { background: var(--sel); }
@@ -376,6 +393,13 @@
     <div class="dlg-actions" style="justify-content:flex-start">
       <button type="button" class="btn" id="installFromSettings" data-t="installSetting" hidden></button>
       <button type="button" class="btn danger" id="signOutBtn" data-t="signOut" hidden></button>
+    </div>
+    <div class="acct" id="acctBox" hidden>
+      <div class="acct-who"><span class="avatar sm" id="acctInitial"></span><div><b id="acctName" dir="ltr"></b><span id="acctRole"></span></div></div>
+      <div class="acct-btns">
+        <button type="button" class="btn" id="pwBtn" data-t="changePw"></button>
+        <button type="button" class="btn" id="usersBtn" data-t="accounts" hidden></button>
+      </div>
       <button type="button" class="btn" id="exportBtn" data-t="export"></button>
       <button type="button" class="btn" id="importBtn" data-t="import"></button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
@@ -394,11 +418,51 @@
   </div>
 </dialog>
 
+<dialog id="pwDlg">
+  <form class="dlg" id="pwForm" novalidate>
+    <h2 data-t="changePw"></h2>
+    <input type="text" autocomplete="username" id="pwUser" hidden>
+    <label for="pwCur" data-t="currentPw"></label>
+    <input id="pwCur" type="password" autocomplete="current-password">
+    <label for="pwNew" data-t="newPw"></label>
+    <input id="pwNew" type="password" autocomplete="new-password">
+    <div class="hint" data-t="pwRule"></div>
+    <div class="err" id="pwErr"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="pwCancel" data-t="cancel"></button>
+      <button type="submit" class="btn primary" id="pwSave" data-t="save"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="usersDlg">
+  <div class="dlg">
+    <h2 data-t="accounts"></h2>
+    <ul class="users" id="usersList"></ul>
+    <form id="addUserForm" class="adduser" novalidate>
+      <h3 data-t="addAccount"></h3>
+      <div class="row2">
+        <div><label for="nuName" data-t="username"></label><input id="nuName" class="ltr" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ahmed"></div>
+        <div><label for="nuRole" data-t="roleLabel"></label>
+          <select id="nuRole"><option value="staff" data-t="roleStaff"></option><option value="owner" data-t="roleOwner"></option></select></div>
+      </div>
+      <label for="nuPw" data-t="password"></label>
+      <input id="nuPw" type="text" class="ltr" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <div class="hint" data-t="userRule"></div>
+      <div class="err" id="nuErr"></div>
+      <div class="dlg-actions"><button type="submit" class="btn primary" id="nuSave" data-t="addAccount"></button></div>
+    </form>
+    <div class="dlg-actions"><button type="button" class="btn" id="usersClose" data-t="done"></button></div>
+  </div>
+</dialog>
+
 <dialog id="loginDlg">
   <form class="dlg" id="loginForm" novalidate>
     <img class="loginlogo" id="loginLogo" alt="Salar" hidden>
     <h2 id="loginTitle"></h2>
     <p class="hint" id="loginHint"></p>
+    <label for="loginUser" data-t="username"></label>
+    <input id="loginUser" class="ltr" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label for="loginPw" data-t="password"></label>
     <input id="loginPw" type="password" autocomplete="current-password">
     <div class="err" id="loginErr"></div>
@@ -435,8 +499,14 @@
       installIosChrome: "Tap {share} Share in the address bar at the top, then {add} “Add to Home Screen”.", installAndroidMenu: "Tap the {menu} menu at the top right of Chrome, then “Install app” or “Add to Home screen”.", installInApp: "This link is open inside another app, which cannot add it to the home screen. Copy the link and open it in {browser}.", copyLink: "Copy link", linkCopied: "Link copied. Paste it in the browser.",
       iosSteps: ["Tap {share} Share at the bottom of Safari (on newer iPhones tap {dots} first, then Share).", "Scroll down the list and tap {add} “Add to Home Screen”.", "Tap “Add” at the top right."],
       synced: (n) => `${n} ${n === 1 ? "order" : "orders"} saved on this phone earlier ${n === 1 ? "was" : "were"} uploaded.`,
-      signInTitle: "Sign in to Salar", signInHint: "Enter the staff password or the owner's password.", ownerTitle: "Owner password", ownerHint: "The report is for the owner only.", signOut: "Sign out", ownerOnly: "Only the owner can change this.",
+      signInTitle: "Sign in to Salar", ownerTitle: "Owner sign-in", signOut: "Sign out", ownerOnly: "Only the owner can change this.",
       signInBtn: "Sign in",
+      username: "Username", signInHint: "Sign in with your username and password.", ownerHint: "The report is for owner accounts only.", notOwner: "This account is not an owner account.", loginWrong: "Username or password is not correct.",
+      changePw: "Change my password", currentPw: "Current password", newPw: "New password", pwRule: "At least 6 characters.", pwChanged: "Password changed. Other phones signed in with this account were signed out.",
+      accounts: "Accounts", addAccount: "Add account", roleLabel: "Role", roleOwner: "Owner", roleStaff: "Staff", userRule: "Username: 3–30 English letters, numbers, dot, dash or underscore. Password: at least 6 characters.",
+      you: "you", resetPw: "Set new password", pwReset: "Password set. That person is signed out and must use the new password.", tapAgainDelete: "Tap delete again to confirm.", accountDeleted: "Account deleted. That person is signed out.", accountAdded: "Account added.",
+      addedBy: "Added by", changedBy: "last change by",
+      err_wrong_current: "The current password is not correct.", err_weak_password: "The password must be at least 6 characters.", err_bad_username: "Use 3–30 English letters, numbers, dot, dash or underscore.", err_username_taken: "That username is already used.", err_last_owner: "There must be at least one owner account.", err_cannot_delete_self: "You cannot delete your own account.", err_owner_only: "Only an owner can do this.",
       appTitle: "Salar · Orders", shopSig: "Salar Men's Tailoring – Madinah\n056 391 8278", add: "+ New order", newOrder: "New order", editOrder: "Edit order",
       name: "Customer name", mobile: "Mobile number", book: "Book number", invoice: "Invoice number",
       status: "Status", dueDate: "Due date", notes: "Notes",
@@ -473,8 +543,14 @@
       installIosChrome: "اضغط {share} مشاركة في شريط العنوان بالأعلى، ثم {add} «إضافة إلى الشاشة الرئيسية».", installAndroidMenu: "اضغط القائمة {menu} أعلى يمين Chrome، ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».", installInApp: "الرابط مفتوح داخل تطبيق آخر لا يسمح بالإضافة إلى الشاشة الرئيسية. انسخ الرابط وافتحه في {browser}.", copyLink: "نسخ الرابط", linkCopied: "تم نسخ الرابط. الصقه في المتصفح.",
       iosSteps: ["اضغط {share} مشاركة أسفل Safari (في أجهزة iPhone الأحدث اضغط {dots} أولاً ثم مشاركة).", "مرّر القائمة للأسفل واضغط {add} «إضافة إلى الشاشة الرئيسية».", "اضغط «إضافة» أعلى يمين الشاشة."],
       synced: (n) => `تم رفع ${n} من الطلبات كانت محفوظة على هذا الجهاز فقط.`,
-      signInTitle: "تسجيل الدخول إلى سالار", signInHint: "أدخل كلمة مرور الموظفين أو كلمة مرور المالك.", ownerTitle: "كلمة مرور المالك", ownerHint: "التقارير للمالك فقط.", signOut: "تسجيل الخروج", ownerOnly: "هذا متاح للمالك فقط.",
+      signInTitle: "تسجيل الدخول إلى سالار", ownerTitle: "دخول المالك", signOut: "تسجيل الخروج", ownerOnly: "هذا متاح للمالك فقط.",
       signInBtn: "دخول",
+      username: "اسم المستخدم", signInHint: "سجّل الدخول باسم المستخدم وكلمة المرور.", ownerHint: "التقارير لحسابات المالك فقط.", notOwner: "هذا الحساب ليس حساب مالك.", loginWrong: "اسم المستخدم أو كلمة المرور غير صحيحة.",
+      changePw: "تغيير كلمة المرور", currentPw: "كلمة المرور الحالية", newPw: "كلمة المرور الجديدة", pwRule: "٦ أحرف على الأقل.", pwChanged: "تم تغيير كلمة المرور، وتم تسجيل خروج هذا الحساب من الأجهزة الأخرى.",
+      accounts: "الحسابات", addAccount: "إضافة حساب", roleLabel: "الصلاحية", roleOwner: "مالك", roleStaff: "موظف", userRule: "اسم المستخدم: من ٣ إلى ٣٠ حرفاً إنجليزياً أو أرقام أو . - _ — كلمة المرور: ٦ أحرف على الأقل.",
+      you: "أنت", resetPw: "تعيين كلمة مرور جديدة", pwReset: "تم تعيين كلمة المرور، وعلى صاحب الحساب الدخول بالكلمة الجديدة.", tapAgainDelete: "اضغط حذف مرة أخرى للتأكيد.", accountDeleted: "تم حذف الحساب وتسجيل خروجه.", accountAdded: "تمت إضافة الحساب.",
+      addedBy: "أضافه", changedBy: "آخر تعديل",
+      err_wrong_current: "كلمة المرور الحالية غير صحيحة.", err_weak_password: "كلمة المرور يجب أن تكون ٦ أحرف على الأقل.", err_bad_username: "استخدم من ٣ إلى ٣٠ حرفاً إنجليزياً أو أرقام أو . - _", err_username_taken: "اسم المستخدم مستخدم مسبقاً.", err_last_owner: "يجب أن يبقى حساب مالك واحد على الأقل.", err_cannot_delete_self: "لا يمكنك حذف حسابك.", err_owner_only: "هذا متاح للمالك فقط.",
       appTitle: "سالار · الطلبات", shopSig: "سالار للخياطة الرجالية – المدينة المنورة\n056 391 8278", add: "+ طلب جديد", newOrder: "طلب جديد", editOrder: "تعديل الطلب",
       name: "اسم العميل", mobile: "رقم الجوال", book: "رقم الدفتر", invoice: "رقم الفاتورة",
       status: "الحالة", dueDate: "تاريخ التسليم", notes: "ملاحظات",
@@ -511,8 +587,14 @@
       installIosChrome: "اوپر ایڈریس بار میں {share} شیئر دبائیں، پھر {add} «Add to Home Screen» منتخب کریں۔", installAndroidMenu: "Chrome کے اوپر دائیں {menu} مینو دبائیں، پھر «Install app» یا «Add to Home screen» منتخب کریں۔", installInApp: "یہ لنک کسی اور ایپ کے اندر کھلا ہے جو ہوم اسکرین پر شامل نہیں کر سکتی۔ لنک کاپی کر کے {browser} میں کھولیں۔", copyLink: "لنک کاپی کریں", linkCopied: "لنک کاپی ہو گیا۔ براؤزر میں پیسٹ کریں۔",
       iosSteps: ["Safari کے نیچے {share} شیئر دبائیں (نئے iPhone پر پہلے {dots} دبائیں، پھر شیئر)۔", "فہرست نیچے اسکرول کریں اور {add} «Add to Home Screen» دبائیں۔", "اوپر دائیں «Add» دبائیں۔"],
       synced: (n) => `اس فون پر محفوظ ${n} آرڈر اپ لوڈ کر دیے گئے۔`,
-      signInTitle: "سالار میں سائن اِن کریں", signInHint: "اسٹاف کا پاس ورڈ یا مالک کا پاس ورڈ درج کریں۔", ownerTitle: "مالک کا پاس ورڈ", ownerHint: "رپورٹ صرف مالک کے لیے ہے۔", signOut: "سائن آؤٹ", ownerOnly: "یہ صرف مالک تبدیل کر سکتا ہے۔",
+      signInTitle: "سالار میں سائن اِن کریں", ownerTitle: "مالک کا سائن اِن", signOut: "سائن آؤٹ", ownerOnly: "یہ صرف مالک تبدیل کر سکتا ہے۔",
       signInBtn: "سائن اِن",
+      username: "یوزر نیم", signInHint: "اپنے یوزر نیم اور پاس ورڈ سے سائن اِن کریں۔", ownerHint: "رپورٹ صرف مالک کے اکاؤنٹ کے لیے ہے۔", notOwner: "یہ مالک کا اکاؤنٹ نہیں ہے۔", loginWrong: "یوزر نیم یا پاس ورڈ درست نہیں ہے۔",
+      changePw: "میرا پاس ورڈ تبدیل کریں", currentPw: "موجودہ پاس ورڈ", newPw: "نیا پاس ورڈ", pwRule: "کم از کم 6 حروف۔", pwChanged: "پاس ورڈ تبدیل ہو گیا، دوسرے فونز سے اس اکاؤنٹ کو سائن آؤٹ کر دیا گیا۔",
+      accounts: "اکاؤنٹس", addAccount: "اکاؤنٹ شامل کریں", roleLabel: "اختیار", roleOwner: "مالک", roleStaff: "اسٹاف", userRule: "یوزر نیم: 3 سے 30 انگریزی حروف، نمبر یا . - _ — پاس ورڈ: کم از کم 6 حروف۔",
+      you: "آپ", resetPw: "نیا پاس ورڈ سیٹ کریں", pwReset: "پاس ورڈ سیٹ ہو گیا، اس شخص کو نئے پاس ورڈ سے سائن اِن کرنا ہوگا۔", tapAgainDelete: "تصدیق کے لیے دوبارہ حذف دبائیں۔", accountDeleted: "اکاؤنٹ حذف اور سائن آؤٹ کر دیا گیا۔", accountAdded: "اکاؤنٹ شامل ہو گیا۔",
+      addedBy: "شامل کیا", changedBy: "آخری تبدیلی",
+      err_wrong_current: "موجودہ پاس ورڈ درست نہیں ہے۔", err_weak_password: "پاس ورڈ کم از کم 6 حروف کا ہونا چاہیے۔", err_bad_username: "3 سے 30 انگریزی حروف، نمبر یا . - _ استعمال کریں۔", err_username_taken: "یہ یوزر نیم پہلے سے موجود ہے۔", err_last_owner: "کم از کم ایک مالک کا اکاؤنٹ ہونا ضروری ہے۔", err_cannot_delete_self: "آپ اپنا اکاؤنٹ حذف نہیں کر سکتے۔", err_owner_only: "یہ صرف مالک کر سکتا ہے۔",
       appTitle: "سالار · آرڈر", shopSig: "سالار مردانہ سلائی – مدینہ منورہ\n056 391 8278", add: "+ نیا آرڈر", newOrder: "نیا آرڈر", editOrder: "آرڈر میں ترمیم",
       name: "گاہک کا نام", mobile: "موبائل نمبر", book: "بک نمبر", invoice: "انوائس نمبر",
       status: "حالت", dueDate: "تیاری کی تاریخ", notes: "نوٹس",
@@ -619,7 +701,7 @@
   }
 
   // ---------- server mode ----------
-  let role = null, loginMode = "signin";
+  let role = null, me = "", loginMode = "signin";
   let serverScan = false, pollTimer = null, reportOk = false, lastSig = "", lastVersion = null, events = null, retryTimer = null, retryDelay = 2000, migrated = false;
   async function pullState() {
     try {
@@ -634,7 +716,7 @@
       lastSig = sig;
       orders = st.orders || [];
       if (st.config) { shop = { shop: String(st.config.shop || ""), code: String(st.config.code || "966") }; store(CKEY, shop); }
-      serverScan = !!st.scan; canScan = true; reportOk = !!st.report; role = st.role || null;
+      serverScan = !!st.scan; canScan = true; reportOk = !!st.report; role = st.role || null; me = st.me || "";
       if (view === "report" && !reportOk) setView("orders");
       loaded = true;
       if (noteKey === "noteSlow") setNote(null);
@@ -718,18 +800,19 @@
     $("loginBtn").textContent = m === "owner" ? t("loginBtn") : t("signInBtn");
     const lg = $("loginLogo"); if (!lg.src) { lg.onload = () => { lg.hidden = false; }; lg.src = "icon-192.png"; }
     $("loginErr").textContent = ""; $("loginPw").value = "";
-    $("loginDlg").showModal(); $("loginPw").focus();
+    if (m === "owner") $("loginUser").value = "";
+    $("loginDlg").showModal(); ($("loginUser").value ? $("loginPw") : $("loginUser")).focus();
   }
   $("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     $("loginBtn").disabled = true; $("loginErr").textContent = "";
     try {
-      const r = await fetch("api/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("loginPw").value }) });
+      const r = await fetch("api/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: $("loginUser").value.trim(), password: $("loginPw").value }) });
       const res = r.ok ? await r.json() : null;
-      if (res && loginMode === "owner" && res.role !== "owner") { $("loginErr").textContent = t("loginWrong"); return; }
+      if (res && loginMode === "owner" && res.role !== "owner") { $("loginErr").textContent = t("notOwner"); role = res.role; me = res.username; return; }
       if (res) {
         $("loginDlg").close();
-        role = res.role; reportOk = role === "owner"; lastSig = "";
+        role = res.role; me = res.username; reportOk = role === "owner"; lastSig = "";
         await pullState();
         if (loginMode === "owner") setView("report");
       }
@@ -877,6 +960,7 @@
           ${fact(t("clearedShort"), o.cleared)}
         </div>
         ${o.notes ? `<div class="notes">${esc(o.notes)}</div>` : ""}
+        ${mode === "server" && o.by ? `<div class="byline">${esc(t("addedBy"))} <b dir="ltr">${esc(o.by)}</b>${o.updatedBy && o.updatedBy !== o.by ? ` · ${esc(t("changedBy"))} <b dir="ltr">${esc(o.updatedBy)}</b>` : ""}</div>` : ""}
         <div class="actions">
           <div class="main-act">
             ${o.status === "pending" ? `<button class="btn ready" data-act="ready"${ro}>${ICON.check}${esc(t("markReady").replace(/^✓\s*/, ""))}</button>` : ""}
@@ -1271,6 +1355,67 @@
     prefs.lang = b.dataset.lang; store(PKEY, prefs); applyLang();
   }));
 
+  // ---------- accounts ----------
+  const errText = (code) => t("err_" + code) || t("saveErr");
+  async function apiJson(method, url, body) {
+    const r = await fetch(url, { method, credentials: "same-origin", headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+    let data = null; try { data = await r.json(); } catch {}
+    if (r.status === 401) { role = null; showLogin("signin"); throw { code: "login" }; }
+    if (!r.ok) throw { code: (data && data.error) || "http_" + r.status };
+    return data;
+  }
+  $("pwBtn").onclick = () => { $("pwUser").value = me; $("pwCur").value = $("pwNew").value = ""; $("pwErr").textContent = ""; $("settingsDlg").close(); $("pwDlg").showModal(); $("pwCur").focus(); };
+  $("pwCancel").onclick = () => $("pwDlg").close();
+  $("pwForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); $("pwSave").disabled = true; $("pwErr").textContent = "";
+    try { await apiJson("POST", "api/password", { current: $("pwCur").value, next: $("pwNew").value }); $("pwDlg").close(); toast(t("pwChanged")); }
+    catch (err) { if (err.code !== "login") $("pwErr").textContent = errText(err.code); }
+    finally { $("pwSave").disabled = false; }
+  });
+
+  async function loadUsers() {
+    let list = [];
+    try { list = await apiJson("GET", "api/users"); } catch (err) { if (err.code !== "login") toast(errText(err.code)); return; }
+    list.sort((a, b) => (a.role === b.role ? a.username.localeCompare(b.username) : a.role === "owner" ? -1 : 1));
+    $("usersList").innerHTML = list.map((u) => `
+      <li data-user="${esc(u.username)}">
+        <span class="avatar sm" aria-hidden="true">${esc(u.username[0].toUpperCase())}</span>
+        <div class="u"><b dir="ltr">${esc(u.username)}${u.username === me ? ` <span>(${esc(t("you"))})</span>` : ""}</b><span class="chip ${u.role}">${esc(u.role === "owner" ? t("roleOwner") : t("roleStaff"))}</span></div>
+        <button type="button" class="tool" data-uact="reset" aria-label="${esc(t("resetPw"))}" title="${esc(t("resetPw"))}">${ICON.edit}</button>
+        ${u.username === me ? "" : `<button type="button" class="tool danger" data-uact="del" aria-label="${esc(t("del"))}" title="${esc(t("del"))}">${ICON.trash}</button>`}
+      </li>`).join("");
+  }
+  $("usersBtn").onclick = async () => { $("settingsDlg").close(); $("nuName").value = $("nuPw").value = ""; $("nuErr").textContent = ""; $("usersDlg").showModal(); await loadUsers(); };
+  $("usersClose").onclick = () => $("usersDlg").close();
+  $("usersList").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-uact]"); if (!b) return;
+    const u = b.closest("li").dataset.user;
+    if (b.dataset.uact === "del") {
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.title = t("tapAgainDelete"); toast(t("tapAgainDelete")); setTimeout(() => { delete b.dataset.confirm; }, 4000); return; }
+      try { await apiJson("DELETE", "api/users/" + encodeURIComponent(u)); toast(t("accountDeleted")); loadUsers(); }
+      catch (err) { if (err.code !== "login") toast(errText(err.code)); }
+    } else {
+      // reset password: reuse the add form's password field
+      const li = b.closest("li");
+      if (li.querySelector(".resetrow")) return;
+      li.insertAdjacentHTML("beforeend", `<div class="resetrow" style="flex-basis:100%;display:flex;gap:8px;margin-top:6px"><input class="ltr" type="text" autocomplete="off" placeholder="${esc(t("newPw"))}" style="flex:1;min-width:0"><button type="button" class="btn primary">${esc(t("save"))}</button></div>`);
+      li.style.flexWrap = "wrap";
+      const inp = li.querySelector(".resetrow input"); inp.focus();
+      li.querySelector(".resetrow button").onclick = async () => {
+        try { await apiJson("PUT", "api/users/" + encodeURIComponent(u), { password: inp.value }); toast(t("pwReset")); loadUsers(); }
+        catch (err) { if (err.code !== "login") toast(errText(err.code)); }
+      };
+    }
+  });
+  $("addUserForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); $("nuSave").disabled = true; $("nuErr").textContent = "";
+    try {
+      await apiJson("POST", "api/users", { username: $("nuName").value.trim().toLowerCase(), password: $("nuPw").value, role: $("nuRole").value });
+      toast(t("accountAdded")); $("nuName").value = $("nuPw").value = ""; loadUsers();
+    } catch (err) { if (err.code !== "login") $("nuErr").textContent = errText(err.code); }
+    finally { $("nuSave").disabled = false; }
+  });
+
   // ---------- add to home screen ----------
   const IKEY = "tailor-install-later";
   let installPrompt = null;
@@ -1349,6 +1494,12 @@
     $("sShop").disabled = $("sCode").disabled = readOnly || notOwner;
     $("importBtn").disabled = readOnly;
     $("signOutBtn").hidden = mode !== "server" || !role;
+    $("acctBox").hidden = mode !== "server" || !role;
+    if (role) {
+      $("acctName").textContent = me; $("acctInitial").textContent = (me[0] || "?").toUpperCase();
+      $("acctRole").textContent = role === "owner" ? t("roleOwner") : t("roleStaff");
+      $("usersBtn").hidden = role !== "owner";
+    }
     refreshInstallEntry();
     $("settingsDlg").showModal();
   };
