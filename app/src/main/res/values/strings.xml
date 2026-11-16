@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gear VR Pointer</string>
+    <string name="service_label">Gear VR Pointer</string>
+    <string name="service_description">Connects to a Samsung Gear VR controller over Bluetooth and uses it to move an on-screen pointer, tap, swipe, and press Back and Home. This service does not read screen content.</string>
+</resources>

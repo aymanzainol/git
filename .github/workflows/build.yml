@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  push:
+    branches: [gearvr-pointer]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk GearVRPointer.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GearVRPointer-apk
+          path: GearVRPointer.apk
+
+      - name: Publish download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete gearvr-pointer-latest --yes --cleanup-tag || true
+          sleep 3
+          gh release create gearvr-pointer-latest GearVRPointer.apk \
+            --target "$GITHUB_SHA" \
+            --title "Gear VR Pointer (latest build)" \
+            --notes "Android app that uses a Samsung Gear VR controller as a pointer for the phone. Built automatically from the gearvr-pointer branch."
